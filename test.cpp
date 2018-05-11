@@ -20,159 +20,51 @@ int main(int argc, char** argv) {
 
 	//vector used to hold the images
 	vector<Mat> images;
-	vector<vector<KeyPoint>> all_keypoints;
 
 	if (argc != 2) {
 		cout << "wrong number of arguments" << endl;
 		return -1;
 	}
 	processImages(images, argv[1]);
+	Mat img1 = images[7];
+	Mat img2 = images[8];
 
 	//using sift, we extract the key points in the image.
 	int minHessian = 400;
-	int index = 0;
+
 	//this is our surf keypoints detector
 	Ptr<SURF> surf = SURF::create(minHessian);
-	vector<Mat> descriptors;
-	/**
-	* This loop finds the keypoints and features on every single image.
-	* We store the new image in a new folder called features
-	*/
-	cout << "calculating the keypoints for the images.." << endl;
-	for(auto it = images.begin(); it != images.end(); ++it) {
-		vector<KeyPoint> keypoints;
-		Mat descriptor;
-		surf->detectAndCompute(*it, Mat(), keypoints, descriptor);
-		all_keypoints.push_back(keypoints);
-		descriptors.push_back(descriptor);
-	}
+	Mat descriptor_img1, descriptor_img2;
+	vector<KeyPoint> keypoint_img1, keypoint_img2;
 
-	//begin the matching process! ..
+	surf->detectAndCompute(img1, Mat(), keypoint_img1, descriptor_img1);
+	surf->detectAndCompute(img2, Mat(), keypoint_img2, descriptor_img2);
 
-	FlannBasedMatcher matcher;
+	BFMatcher matcher(NORM_L2);
 	vector<DMatch> matches;
-
-	Mat descriptor_img1 = descriptors.at(1);
-	Mat descriptor_img2 = descriptors.at(2);
-
 	matcher.match(descriptor_img1, descriptor_img2, matches);
-	cout << "size of matches: " << matches.size() << endl;
-	double min_dist = 0;
-	double max_dist = 200;
 
-	for (int i = 0; i < descriptor_img1.rows; ++i) {
-		double dist = matches[i].distance;
-		if (dist < min_dist) {
-			min_dist = dist;
-		} 
-		if (dist > max_dist) {
-			max_dist = dist;
-		} 
-	}
-
-	vector<DMatch> good_matches;
-
-	for (int i = 0; i < descriptor_img1.rows; ++i) {
-		if( matches[i].distance <= max(2 * min_dist, 0.05)) {
-			good_matches.push_back(matches[i]);
-		}
-	}
+	cout << "found : " << matches.size() << " matches" << endl;
 
 	Mat img_matches;
-	drawMatches(images[1], all_keypoints[1], images[2], all_keypoints[2],
-				good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-				vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+	drawMatches(img1, keypoint_img1, img2, keypoint_img2, matches, img_matches,
+				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
-	cout << "good matches size: " << good_matches.size() << endl;
+	imwrite("matches.jpg", img_matches);
 
-	vector<Point2f> img1_points;
-	vector<Point2f> img2_points;
+	vector<Point2f> img1_obj;
+	vector<Point2f> img2_obj;
 
-	for (int i = 0; i < good_matches.size(); ++i) {
-		img1_points.push_back(all_keypoints[1][good_matches[i].queryIdx].pt);
-		img2_points.push_back(all_keypoints[2][good_matches[i].trainIdx].pt);
+	for (int i = 0; i < matches.size(); ++i) {
+		img1_obj.push_back(keypoint_img1[matches[i].queryIdx].pt);
+		img2_obj.push_back(keypoint_img2[matches[i].trainIdx].pt);
 	}
 
-	Mat H;
-	if(img1_points.size() != 0 && img2_points.size() != 0) {
-		cout << "inside the if" << endl;
-		H = findHomography(img1_points, img2_points, CV_RANSAC);
-	}
-	
-	//get the corners from the images.
-	vector<Point2f> corners(4);
-	corners[0] = cvPoint(0, 0);
-	corners[1] = cvPoint(images[1].cols, 0);
-	corners[2] = cvPoint(images[1].cols, images[1].rows);
-	corners[3] = cvPoint(0, images[1].rows);
-	vector<Point2f> corners2(4);
+	//find the Homography Matrix
+	Mat H = findHomography(img1_obj, img2_obj, CV_RANSAC);
 
-	if (!H.empty()) {
-		cout << "inside the second if" << endl;
-		perspectiveTransform(corners, corners2, H);
-
-		line(img_matches, corners2[0] + Point2f(images[1].cols, 0), corners2[1] + Point2f(images[1].cols, 0), Scalar(0, 255, 0), 4);
-		line(img_matches, corners2[1] + Point2f(images[1].cols, 0), corners2[2] + Point2f(images[1].cols, 0), Scalar(0, 255, 0), 4);
-		line(img_matches, corners2[2] + Point2f(images[1].cols, 0), corners2[3] + Point2f(images[1].cols, 0), Scalar(0, 255, 0), 4);
-		line(img_matches, corners2[3] + Point2f(images[1].cols, 0), corners2[0] + Point2f(images[1].cols, 0), Scalar(0, 255, 0), 4);
-
-		imwrite("test.jpg", img_matches);
-
-	}
-	
-	// //if we have odd number of images have a triple.
-	// int odd = descriptors.size() % 2;
-
-	// //for each pair of images match the features
-	// for (auto it = descriptors.begin(); it != descriptors.end(); ++it) {
-	// 	if (!odd) {
-	// 		matcher.match(*it, *(++it), matches);
-	// 	} else {
-	// 		odd = 0;
-	// 	}
-	// }
-
-	// //now we find the "good" matches that are close to each other.
-	// for (auto it = descriptors.begin(); it != descriptors.end(); ++it) {
-	// 	double min_dist = 0;
-	// 	double max_dist = 100;
-	// 	cout << "calculating the min/max distance" << endl;
-	// 	for (int i = 0; i < (*it).rows; ++i) {
-	// 		double dist = matches[i].distance;
-	// 		if (dist < min_dist) {
-	// 			min_dist = dist;
-	// 		}
-	// 		if (dist > max_dist) {
-	// 			max_dist = dist;
-	// 		}
-	// 	}
-
-	// 	vector<DMatch> good_matches;
-	// 	cout << "finding good matches.." << endl;
-	// 	for (int i = 0; i < (*it).rows; ++i) {
-	// 		if (matches[i].distance < (3 * min_dist)) {
-	// 			good_matches.push_back(matches[i]);
-	// 		}
-	// 	}
-	// 	Mat img_matches;
-	// 	drawMatches(images[index], all_keypoints[index], images[index + 1], all_keypoints[index + 1],
-	// 				good_matches, img_matches, Scalar::all(-1), Scalar::all(-1),
-	// 				vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-
-	// 	imwrite("./matchedimages" + to_string(index) + ".jpg", img_matches);
-
-	// 	vector<Point2f> img1;
-	// 	vector<Point2f> img2;
-
-	// 	for (int i = 0; i < good_matches.size(); ++i) {
-	// 		img1.push_back(all_keypoints[index][good_matches[i].queryIdx].pt);
-	// 		img2.push_back(all_keypoints[index + 1][good_matches[i].trainIdx].pt);
-
-	// 	}
-	// 	Mat H = findHomography(img1, img2, CV_RANSAC);
-
-	// 	++index;
-	// }
+	//find the fundamentalMatrix
+	Mat E = findFundamentalMat(img1_obj, img2_obj, FM_RANSAC, 3, 0.99);
 
 	return 0;
 }
