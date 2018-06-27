@@ -4,10 +4,10 @@ CXX= g++
 CXXFLAGS= -g -std=c++11
 LDFLAGS= -g -std=c++11
 
-default: test
+default: 3drecon
 
-test:
-	g++ test.cpp -std=c++11 -o test `pkg-config --cflags --libs opencv`
+3drecon:
+	g++ 3dReconstruction.cpp -std=c++11 -o 3drecon `pkg-config --cflags --libs opencv`
 
 clean: 
-	rm -f test *.o *.gch
+	rm -f 3drecon *.o *.gch
