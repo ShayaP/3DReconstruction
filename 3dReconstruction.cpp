@@ -84,7 +84,27 @@ int main(int argc, char** argv) {
 	Mat F = findFundamentalMat(img1_obj, img2_obj, FM_RANSAC, 0.1, 0.99);
 	//compute the essential matrix.
 	Mat E = K.t() * F * K;
-	SVD decomp = SVD(E);
+	SVD decomp = SVD(E, SVD::MODIFY_A);
+
+	//decomposition of E matricies.
+	Mat U = decomp.u;
+	Mat vt = decomp.vt;
+	Mat w = decomp.w;
+	Matx33d W(0, -1, 0,
+		1, 0, 0, 
+		0, 0, 1);
+	Matx33d Wt(0, 1, 0,
+		-1, 0, 0, 
+		0, 0, 1);
+	Mat R1 = U * Mat(W) * vt;
+	Mat R2 = U * Mat(Wt) * vt;
+	Mat t1 = U.col(2);
+	Mat t2 = -U.col(2);
+	//this is the first of the 4 possible matricies.
+	P1 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	t1(0),
+				R1(1,0),	R1(1,1),	R1(1,2),	t1(1),
+				R1(2,0), R1(2,1), R1(2,2), t1(2));
+	//now test to see which of the 4 P1s are good.
 
 	return 0;
 }
