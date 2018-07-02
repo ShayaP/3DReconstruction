@@ -90,7 +90,7 @@ private:
 			}
 
 			cout << "printing distanceCoeffs to file" << endl;
-			outStream << "distanceCoeffs:" << endl;
+			outStream << "D:" << endl;
 			rows = distanceCoeffs.rows;
 			cols = distanceCoeffs.cols;
 			for (int i = 0; i < rows; ++i) {
