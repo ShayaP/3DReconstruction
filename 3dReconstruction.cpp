@@ -33,7 +33,17 @@ double TriangulatePoints(const vector<KeyPoint>& keypoint_img1,
 	const Matx34d& P1, const Matx34d& P2,
 	vector<CloudPoint>& pointCloud,
 	vector<KeyPoint>& correspondingImg1Pt);
+bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
+	Mat_<double>& t1, Mat_<double>& t2); 
 void calibrateFromFile(Mat& K, string fileName);
+bool checkRotationMat(Mat_<double>& R1);
+bool testTriangulation(const vector<CloudPoint>& pointCloud, const Matx34d& P,
+	vector<uchar>& status);
+void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPoints);
+bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoeffs,
+	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
+	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, Mat_<double> t2);
+
 
 int main(int argc, char** argv) {
 
@@ -105,16 +115,57 @@ int main(int argc, char** argv) {
 	Mat F = findFundamentalMat(img1_obj, img2_obj, FM_RANSAC, 0.1, 0.99);
 	//compute the essential matrix.
 	Mat_<double> E = K.t() * F * K;
+	Mat_<double> R1;
+	Mat_<double> R2;
+	Mat_<double> t1;
+	Mat_<double> t2;
+	bool res = DecomposeEssentialMat(E, R1, R2, t1, t2);
+	if (!res) {
+		cout << "decomposition failed" << endl;
+		return -1;
+	}	
+
+	if (determinant(R1) + 1.0 < 1e-09) {
+		E = -E;
+		DecomposeEssentialMat(E, R1, R2, t1, t2);
+	}
+
+	if (!checkRotationMat(R1)) {
+		cout << "Rotation Matrix is not correct" << endl;
+		return -1;
+	}
+
+	//now we find our camera matricies P and P1.
+	//we assume that P = [I|0]
+	Matx34d P1(1, 0, 0, 0,
+		0, 1, 0, 0, 
+		0, 0, 1, 0);
+	Matx34d P2;
+	//now test to see which of the 4 P2s are good.
+	findP2Matrix(P1, P2, K, distanceCoeffs, keypoint_img1, keypoint_img2,
+		R1 , R2, t1, t2);
+
+	return 0;
+}
+
+bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
+	Mat_<double>& t1, Mat_<double>& t2) {
 	SVD decomp = SVD(E, SVD::MODIFY_A);
 
 	//decomposition of E.
 	Mat U = decomp.u;
 	Mat vt = decomp.vt;
 	Mat w = decomp.w;
-	Mat_<double> R1;
-	Mat_<double> R2;
-	Mat_<double> t1;
-	Mat_<double> t2;
+
+	//check to see if first and second singular values are the same.
+	double svr = fabsf(w.at<double>(0) / w.at<double>(1));
+	if (svr > 1.0) {
+		svr = 1.0 / svr;
+	}
+	if (svr < 0.7) {
+		cout << "singular values are too far apart" << endl;
+		return false;
+	}
 
 	Matx33d W(0, -1, 0,
 		1, 0, 0, 
@@ -126,19 +177,7 @@ int main(int argc, char** argv) {
 	R2 = U * Mat(Wt) * vt;
 	t1 = U.col(2);
 	t2 = -U.col(2);
-
-	//now we find our camera matricies P and P1.
-	//we assume that P = [I|0]
-	Matx34d P1(1, 0, 0, 0,
-		0, 1, 0, 0, 
-		0, 0, 1, 0);
-	//this is the first of the 4 possible matricies for P1.
-	Matx34d P2(R1(0,0),	R1(0,1),	R1(0,2),	t1(0),
-				R1(1,0),	R1(1,1),	R1(1,2),	t1(1),
-				R1(2,0), R1(2,1), R1(2,2), t1(2));
-	//now test to see which of the 4 P1s are good.
-
-	return 0;
+	return true;
 }
 
 Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2) {
@@ -309,18 +348,149 @@ void calibrateFromFile(Mat& K, string fileName) {
 		cout << "failed to open the calibration file." << endl;
 		return;
 	} else {
-		int i = 0;
-		int j = 0;
-		while (getline(infile, line)) {
-			if (line == "K:") {
-				temp.clear();
-				while (i < 9 && infile >> temp[i]) {
-					++i;
+		//TODO implement.
+	}
+}
+
+/**
+* This function tests to see if a given rotation matrix is valid.
+*/
+bool checkRotationMat(Mat_<double>& R1) {
+	if (fabsf(determinant(R1)) - 1.0 > 1e-07) {
+		cout << "Rotation Matrix is not valid" << endl;
+		return false;
+	} else {
+		return true;
+	}
+}
+
+/**
+* This function tests to see how many points with a certain Camera P lie
+* infront of the camera. if more than 75% of the points lie infront of the camera,
+* this test is a success.
+*/
+bool testTriangulation(vector<CloudPoint>& pointCloud, const Matx34d& P,
+	vector<uchar>& status) {
+	vector<Point3d> pcloud_pt3d;
+	transformCloudPoints(pcloud_pt3d, pointCloud);
+	vector<Point3d> pcloud_pt3d_projected(pcloud_pt3d.size());
+
+	Matx44d P4x4 = Matx44d::eye();
+	for (int i = 0; i < 12; ++i) {
+		P4x4.val[i] = P.val[i];
+	}
+
+	perspectiveTransform(pcloud_pt3d, pcloud_pt3d_projected, P4x4);
+	status.resize(pointCloud.size(), 0);
+	for (int i = 0; i < pointCloud.size(); ++i) {
+		status[i] = (pcloud_pt3d_projected[i].z > 0) ? 1 : 0;
+	}
+	int count = countNonZero(status);
+
+	double percentage = ((double)count / (double)pointCloud.size());
+	cout << "percentage of points infront of camera: " << percentage << endl;
+	if (percentage <  0.75) {
+		return false;
+	} else {
+		return true;
+	}
+}
+
+/**
+* This function transforms cloudpoints into 3d points.
+*/
+void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPoints) {
+	points3d.clear();
+	for (auto it = cloudPoints.begin(); it != cloudPoints.end(); ++it) {
+		points3d.push_back((*it).pt);
+	}
+}
+
+bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoeffs,
+	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
+	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, Mat_<double> t2) {
+	P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	t1(0),
+				R1(1,0),	R1(1,1),	R1(1,2),	t1(1),
+				R1(2,0), R1(2,1), R1(2,2), t1(2));
+
+	vector<CloudPoint> pointCloud1;
+	vector<CloudPoint> pointCloud2;
+	vector<KeyPoint> correspondingImg1pts;
+	Mat Kinv = K.inv();
+
+	cout << "starting test for P2, first configuration" << endl;
+	double reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+		distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+	double reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+		distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
+
+	vector<uchar> temp_status;
+
+	if (!testTriangulation(pointCloud1, P2, temp_status) 
+		|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+		|| reproj_err2 > 100.0) {
+		//try a new P2
+		P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	t2(0),
+			R1(1,0),	R1(1,1),	R1(1,2),	t2(1),
+			R1(2,0), R1(2,1), R1(2,2), t2(2));
+		cout << "starting test for P2, second configuration" << endl;
+		pointCloud1.clear();
+		pointCloud2.clear();
+		correspondingImg1pts.clear();
+
+		reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+			distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+		reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+			distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
+
+		if (!testTriangulation(pointCloud1, P2, temp_status) 
+			|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+			|| reproj_err2 > 100.0) {
+			if (!checkRotationMat(R2)) {
+				cout << "R2 was not valid" << endl;
+				P2 = 0;
+				return false;
+			}
+
+			//try another P2
+			P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	t1(0),
+					R2(1,0),	R2(1,1),	R2(1,2),	t1(1),
+					R2(2,0), R2(2,1), R2(2,2), t1(2));
+			cout << "starting test for P2, thrid configuration" << endl;
+
+			pointCloud1.clear();
+			pointCloud2.clear();
+			correspondingImg1pts.clear();
+
+			reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+				distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+			reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+				distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
+
+			if (!testTriangulation(pointCloud1, P2, temp_status) 
+				|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+				|| reproj_err2 > 100.0) {
+
+				//try the last P2
+				P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	t2(0),
+						R2(1,0),	R2(1,1),	R2(1,2),	t2(1),
+						R2(2,0), R2(2,1), R2(2,2), t2(2));
+				cout << "starting test for last P2 configuration" << endl;
+				pointCloud1.clear();
+				pointCloud2.clear();
+				correspondingImg1pts.clear();
+
+				reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+					distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+				reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+					distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
+				if (!testTriangulation(pointCloud1, P2, temp_status) 
+					|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+					|| reproj_err2 > 100.0) {
+					cout << "could not find a good P2.." << endl;
+					return false;
 				}
-			} else if (line == "D:") {
-				temp.clear();
-				while (j < 9)
-			} 
+			}
 		}
 	}
 }
