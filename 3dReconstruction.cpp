@@ -148,6 +148,10 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
+/**
+* This function decomposes the Essential matrix E using the SVD class.
+* Returns: Rotation Matricies (R1, R2) and Translation Matricies (t1, t2).
+*/
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	Mat_<double>& t1, Mat_<double>& t2) {
 	SVD decomp = SVD(E, SVD::MODIFY_A);
@@ -180,6 +184,9 @@ bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	return true;
 }
 
+/**
+* This is a helper function for that computes X from AX = B.
+*/
 Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2) {
 	Matx43d A(u1.x*P1(2,0)-P1(0,0),	u1.x*P1(2,1)-P1(0,1),		u1.x*P1(2,2)-P1(0,2),		
 			u1.y*P1(2,0)-P1(1,0),	u1.y*P1(2,1)-P1(1,1),		u1.y*P1(2,2)-P1(1,2),		
@@ -196,6 +203,9 @@ Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P
 	return X;
 }
 
+/**
+* This function solves the equation AX = B for the point X.
+*/
 Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2) {
 	int num_iterations = 10;
 	float EPSILON = 0.0001;
@@ -244,6 +254,10 @@ Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, 
 	return X;
 }
 
+/**
+* This function computes a point cloud from given key points in the 2 images
+* and given camera matricies.
+*/
 double TriangulatePoints(const vector<KeyPoint>& keypoint_img1, 
 	const vector<KeyPoint>& keypoint_img2,
 	const Mat& K, const Mat& Kinv, 
@@ -406,6 +420,9 @@ void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPo
 	}
 }
 
+/**
+* This function tests all 3 different possible P2 matricies and picks one or none.
+*/
 bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoeffs,
 	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
 	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, Mat_<double> t2) {
