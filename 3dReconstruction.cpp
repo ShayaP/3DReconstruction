@@ -74,88 +74,98 @@ int main(int argc, char** argv) {
 	Mat img1 = images[0];
 	Mat img2 = images[1];
 
-	//using sift, we extract the key points in the image.
-	int minHessian = 400;
-
 	//this is our surf keypoints detector
-	Ptr<SURF> surf = SURF::create(minHessian);
+	Ptr<Feature2D> sift = SIFT::create();
 	Mat descriptor_img1, descriptor_img2;
 	vector<KeyPoint> keypoint_img1, keypoint_img2;
 
-	surf->detectAndCompute(img1, Mat(), keypoint_img1, descriptor_img1);
-	surf->detectAndCompute(img2, Mat(), keypoint_img2, descriptor_img2);
+	sift->detect(img1, keypoint_img1);
+	sift->detect(img2, keypoint_img2);
+	sift->compute(img1, keypoint_img1, descriptor_img1);
+	sift->compute(img2, keypoint_img2, descriptor_img2);
+	cout << "done detecting and computing features" << endl;
 
-	BFMatcher matcher(NORM_L2);
+	// Ptr<DescriptorExtractor> extractor = SIFT::create();
+	// extractor->compute(img1, keypoint_img1, descriptor_img1);
+	// extractor->compute(img2, keypoint_img2, descriptor_img2);
+	// cout << "done computing descriptors" << endl;
+
+	BFMatcher matcher(NORM_L2, true);
 	vector<DMatch> matches;
 	matcher.match(descriptor_img1, descriptor_img2, matches);
 
 	cout << "found : " << matches.size() << " matches" << endl;
 
-	vector<Point2f> img1_obj;
-	vector<Point2f> img2_obj;
-
-	for (int i = 0; i < matches.size(); ++i) {
-		img1_obj.push_back(keypoint_img1[matches[i].queryIdx].pt);
-		img2_obj.push_back(keypoint_img2[matches[i].trainIdx].pt);
-	}
-
 	//filter the matches
 	cout << "filtering matches..." << endl;
-	double minVal = 0, maxVal = 100;
-	for(int i = 0; i < descriptor_img1.rows; ++i) {
-		double dist = matches[i].distance;
-		if (dist < minVal) minVal = dist;
-		if (dist > maxVal) maxVal = dist;
-	}
-	vector<DMatch> new_matches;
-	for (int i = 0; i < descriptor_img1.rows; ++i) {
-		if (matches[i].distance <= max(2*minVal, 0.1)) {
-			new_matches.push_back(matches[i]);
+	double treshold = 0.25 * sqrt(double(img1.size().height * img1.size().height + 
+		img1.size().width * img1.size().width));
+
+	vector<DMatch> good_matches;
+	good_matches.reserve(matches.size());
+	for (int i = 0; i < matches.size(); ++i) {
+		Point2f from = keypoint_img1[matches[i].queryIdx].pt;
+		Point2f to = keypoint_img2[matches[i].trainIdx].pt;
+
+		double dist = sqrt((from.x - to.x) * (from.x - to.x) + 
+			(from.y - to.y) * (from.y - to.y));
+		if (dist < treshold && abs(from.y - to.y) < 5) {
+			good_matches.push_back(matches[i]);
 		}
 	}
-	cout << "new matches: " << new_matches.size() << endl;
+	cout << "new matches: " << good_matches.size() << endl;
+	cout << "img1 keypoints: " << keypoint_img1.size() << endl;
+	cout << "img2 keypoints: " << keypoint_img2.size() << endl;
 
 	//draw the matches found.
 	Mat img_matches;
-	drawMatches(img1, keypoint_img1, img2, keypoint_img2, new_matches, img_matches,
+	drawMatches(img1, keypoint_img1, img2, keypoint_img2, good_matches, img_matches,
 				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
 	imwrite("matches.jpg", img_matches);
 
-	//find the fundamnetal matrix
-	Mat F = findFundamentalMat(img1_obj, img2_obj, FM_RANSAC, 0.1, 0.99);
+	vector<Point2f> img1_obj;
+	vector<Point2f> img2_obj;
 
-	//compute the essential matrix.
-	Mat_<double> E = K.t() * F * K;
-	Mat_<double> R1;
-	Mat_<double> R2;
-	Mat_<double> t1;
-	Mat_<double> t2;
-	bool res = DecomposeEssentialMat(E, R1, R2, t1, t2);
-	if (!res) {
-		cout << "decomposition failed" << endl;
-		return -1;
-	}	
+	// for (int i = 0; i < matches.size(); ++i) {
+	// 	img1_obj.push_back(keypoint_img1[matches[i].queryIdx].pt);
+	// 	img2_obj.push_back(keypoint_img2[matches[i].trainIdx].pt);
+	// }
 
-	if (determinant(R1) + 1.0 < 1e-09) {
-		E = -E;
-		DecomposeEssentialMat(E, R1, R2, t1, t2);
-	}
+	// //find the fundamnetal matrix
+	// Mat F = findFundamentalMat(img1_obj, img2_obj, FM_RANSAC, 0.1, 0.99);
 
-	if (!checkRotationMat(R1)) {
-		cout << "Rotation Matrix is not correct" << endl;
-		return -1;
-	}
+	// //compute the essential matrix.
+	// Mat_<double> E = K.t() * F * K;
+	// Mat_<double> R1;
+	// Mat_<double> R2;
+	// Mat_<double> t1;
+	// Mat_<double> t2;
+	// bool res = DecomposeEssentialMat(E, R1, R2, t1, t2);
+	// if (!res) {
+	// 	cout << "decomposition failed" << endl;
+	// 	return -1;
+	// }	
 
-	//now we find our camera matricies P and P1.
-	//we assume that P = [I|0]
-	Matx34d P1(1, 0, 0, 0,
-		0, 1, 0, 0, 
-		0, 0, 1, 0);
-	Matx34d P2;
-	//now test to see which of the 4 P2s are good.
-	findP2Matrix(P1, P2, K, distanceCoeffs, keypoint_img1, keypoint_img2,
-		R1 , R2, t1, t2);
+	// if (determinant(R1) + 1.0 < 1e-09) {
+	// 	E = -E;
+	// 	DecomposeEssentialMat(E, R1, R2, t1, t2);
+	// }
+
+	// if (!checkRotationMat(R1)) {
+	// 	cout << "Rotation Matrix is not correct" << endl;
+	// 	return -1;
+	// }
+
+	// //now we find our camera matricies P and P1.
+	// //we assume that P = [I|0]
+	// Matx34d P1(1, 0, 0, 0,
+	// 	0, 1, 0, 0, 
+	// 	0, 0, 1, 0);
+	// Matx34d P2;
+	// //now test to see which of the 4 P2s are good.
+	// findP2Matrix(P1, P2, K, distanceCoeffs, keypoint_img1, keypoint_img2,
+	// 	R1 , R2, t1, t2);
 
 	return 0;
 }
@@ -222,7 +232,7 @@ Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, 
 	int num_iterations = 10;
 	float EPSILON = 0.0001;
 
-	cout << "starting IterativeLinearLSTriangulation.. " << endl;
+	//cout << "starting IterativeLinearLSTriangulation.. " << endl;
 	double wi1 = 1;
 	double wi2 = 1;
 	Mat_<double> X(4, 1);
