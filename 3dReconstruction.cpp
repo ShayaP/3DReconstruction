@@ -35,7 +35,6 @@ double TriangulatePoints(const vector<KeyPoint>& keypoint_img1,
 	vector<KeyPoint>& correspondingImg1Pt);
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	Mat_<double>& t1, Mat_<double>& t2); 
-void calibrateFromFile(Mat& K, string fileName);
 bool checkRotationMat(Mat_<double>& R1);
 bool testTriangulation(const vector<CloudPoint>& pointCloud, const Matx34d& P,
 	vector<uchar>& status);
@@ -66,12 +65,9 @@ int main(int argc, char** argv) {
 			show = false;
 		}
 		CameraCalib cc(argv[2], K, distanceCoeffs, rVectors, tVectors, show);
-	} else if (argc == 3) {
-		//read in calibration info from file.
-		string fileName = argv[2];
-		calibrateFromFile(K, fileName);
 	} else if (argc == 2) {
-		//auto calibrate
+		//read in calibration info from file.
+		CameraCalib cc("calibInfo.yml", K, distanceCoeffs);
 	}
 
 	processImages(images, argv[1]);
@@ -95,12 +91,6 @@ int main(int argc, char** argv) {
 
 	cout << "found : " << matches.size() << " matches" << endl;
 
-	Mat img_matches;
-	drawMatches(img1, keypoint_img1, img2, keypoint_img2, matches, img_matches,
-				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-
-	imwrite("matches.jpg", img_matches);
-
 	vector<Point2f> img1_obj;
 	vector<Point2f> img2_obj;
 
@@ -108,11 +98,33 @@ int main(int argc, char** argv) {
 		img1_obj.push_back(keypoint_img1[matches[i].queryIdx].pt);
 		img2_obj.push_back(keypoint_img2[matches[i].trainIdx].pt);
 	}
-	
-	//TODO: prune matches.
 
-	//find the fundamentalMatrix
+	//filter the matches
+	cout << "filtering matches..." << endl;
+	double minVal = 0, maxVal = 100;
+	for(int i = 0; i < descriptor_img1.rows; ++i) {
+		double dist = matches[i].distance;
+		if (dist < minVal) minVal = dist;
+		if (dist > maxVal) maxVal = dist;
+	}
+	vector<DMatch> new_matches;
+	for (int i = 0; i < descriptor_img1.rows; ++i) {
+		if (matches[i].distance <= max(2*minVal, 0.1)) {
+			new_matches.push_back(matches[i]);
+		}
+	}
+	cout << "new matches: " << new_matches.size() << endl;
+
+	//draw the matches found.
+	Mat img_matches;
+	drawMatches(img1, keypoint_img1, img2, keypoint_img2, new_matches, img_matches,
+				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+
+	imwrite("matches.jpg", img_matches);
+
+	//find the fundamnetal matrix
 	Mat F = findFundamentalMat(img1_obj, img2_obj, FM_RANSAC, 0.1, 0.99);
+
 	//compute the essential matrix.
 	Mat_<double> E = K.t() * F * K;
 	Mat_<double> R1;

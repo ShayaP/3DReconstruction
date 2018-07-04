@@ -17,6 +17,9 @@ using namespace cv;
 
 class CameraCalib {
 public: 
+	CameraCalib(string fileName, Mat& K, Mat& distanceCoeffs) {
+		readCameraInfo(fileName, K, distanceCoeffs);
+	}
 	CameraCalib(char* dirName, Mat& K, Mat& distanceCoeffs, 
 		vector<Mat>& rVectors, vector<Mat>& tVectors, bool show) {
 		ManualCalibrateCamera(dirName, K, distanceCoeffs, rVectors, tVectors, show);
@@ -43,7 +46,7 @@ private:
 		worldCornerPoints.resize(imageSpacePoints.size(), worldCornerPoints[0]);
 		cout << "starting calibration" << endl;
 		calibrateCamera(worldCornerPoints, imageSpacePoints, chessdim, K, distanceCoeffs, rVectors, tVectors);
-		printCalibToFile("calibInfo.txt", K, distanceCoeffs);
+		printCalibToFile(K, distanceCoeffs);
 	}
 	void createKnownBoardPosition (Size boardSize, float squareEdgeLength, vector<Point3f>& conrners) {
 		cout << "creating createKnownBoardPosition" << endl;
@@ -74,38 +77,20 @@ private:
 			}
 		}
 	}
-	bool printCalibToFile(string name, Mat& K, Mat& distanceCoeffs) {
+
+	void printCalibToFile(Mat& K, Mat& distanceCoeffs) {
 		cout << "priting camera info to file .." << endl;
-		ofstream outStream(name);
-		if (outStream) {
-			//print the info for the intrinsic params.
-			outStream << "K:" << endl;
-			uint16_t rows = K.rows;
-			uint16_t cols = K.cols;
-			for (int i = 0; i < rows; ++i) {
-				for (int j = 0; j < cols; ++j) {
-					double val = K.at<double>(i, j);
-					outStream << val << endl;
-				} 
-			}
+		FileStorage fs("calibInfo.yml", FileStorage::WRITE);
+		fs << "K" << K;
+		fs << "distanceCoeffs" << distanceCoeffs;
+		fs.release(); 
+	}
 
-			cout << "printing distanceCoeffs to file" << endl;
-			outStream << "D:" << endl;
-			rows = distanceCoeffs.rows;
-			cols = distanceCoeffs.cols;
-			for (int i = 0; i < rows; ++i) {
-				for (int j = 0; j < cols; ++j) {
-					double val = distanceCoeffs.at<double>(i, j);
-					outStream << val << endl;
-				} 
-			}
-
-			outStream.close();
-			return true;
-		} else {
-			cout << "could not open stream." << endl;
-			return false;
-		}
+	void readCameraInfo(string fileName, Mat& K, Mat& distanceCoeffs) {
+		FileStorage fs(fileName, FileStorage::READ);
+		fs["K"] >> K;
+		fs["distanceCoeffs"] >> distanceCoeffs;
+		fs.release();
 	}
 	/**
 	* this method processes the images in a directory and adds them to the list
