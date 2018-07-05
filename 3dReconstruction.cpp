@@ -59,12 +59,13 @@ int main(int argc, char** argv) {
 		cout << "wrong number of arguments" << endl;
 		return -1;
 	} else if (argc == 4) {
-		if (*(argv[3]) == 1) {
+		if (atoi(argv[3]) == 1) {
 			show = true;
 		} else {
 			show = false;
 		}
 		CameraCalib cc(argv[2], K, distanceCoeffs, rVectors, tVectors, show);
+		return 0;
 	} else if (argc == 2) {
 		//read in calibration info from file.
 		CameraCalib cc("calibInfo.yml", K, distanceCoeffs);

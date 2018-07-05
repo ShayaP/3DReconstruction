@@ -27,7 +27,13 @@ public:
 private:
 	//declare the calibration board consts.
 	const float calibSquareDim = 0.032f;
-	const Size chessdim = Size(6, 9);
+	const Size chessdim = Size(9, 6);
+	const int FLAGS = CV_CALIB_FIX_PRINCIPAL_POINT +
+		CV_CALIB_FIX_ASPECT_RATIO +
+		CV_CALIB_ZERO_TANGENT_DIST +
+		CV_CALIB_FIX_K4 +
+		CV_CALIB_FIX_K5;
+
 	void ManualCalibrateCamera(char* dirName, Mat& K, Mat& distanceCoeffs, 
 		vector<Mat>& rVectors, vector<Mat>& tVectors, bool show) {
 		cout << "entering ManualCalibrateCamera" << endl;
@@ -45,7 +51,8 @@ private:
 		createKnownBoardPosition(chessdim, calibSquareDim, worldCornerPoints[0]);
 		worldCornerPoints.resize(imageSpacePoints.size(), worldCornerPoints[0]);
 		cout << "starting calibration" << endl;
-		double error = calibrateCamera(worldCornerPoints, imageSpacePoints, chessdim, K, distanceCoeffs, rVectors, tVectors);
+		double error = calibrateCamera(worldCornerPoints, imageSpacePoints, chessdim, K, 
+			distanceCoeffs, rVectors, tVectors, FLAGS);
 		cout << "calibration ended with error: " << error << endl;
 		printCalibToFile(K, distanceCoeffs, error);
 	}
@@ -62,20 +69,23 @@ private:
 		bool draw) {
 		int index = 1;
 		cout << "entering getChessboardCorners" << endl;
-		for (auto it = images.begin(); it != images.end(); ++it) {
+ 		for (auto it = images.begin(); it != images.end(); ++it) {
 			vector<Point2f> pointBuffer;
 			int flags = CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_NORMALIZE_IMAGE;
 			bool res = findChessboardCorners(*it, Size(9, 6), pointBuffer, flags);
 			if (res) {
 				cout << "corner for image " << index << " found successfully" << endl;
+
 				allFoundCorners.push_back(pointBuffer);
 				if (draw) {
 					drawChessboardCorners(*it, chessdim, pointBuffer, res);
 					string name = "board" + to_string(index) + ".jpg";
 					imwrite(name, *it);
 				}
-				++index;
+			} else {
+				cout << "failed to find corners of image: " <<  index << endl;
 			}
+			++index;
 		}
 	}
 
