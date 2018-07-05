@@ -45,8 +45,9 @@ private:
 		createKnownBoardPosition(chessdim, calibSquareDim, worldCornerPoints[0]);
 		worldCornerPoints.resize(imageSpacePoints.size(), worldCornerPoints[0]);
 		cout << "starting calibration" << endl;
-		calibrateCamera(worldCornerPoints, imageSpacePoints, chessdim, K, distanceCoeffs, rVectors, tVectors);
-		printCalibToFile(K, distanceCoeffs);
+		double error = calibrateCamera(worldCornerPoints, imageSpacePoints, chessdim, K, distanceCoeffs, rVectors, tVectors);
+		cout << "calibration ended with error: " << error << endl;
+		printCalibToFile(K, distanceCoeffs, error);
 	}
 	void createKnownBoardPosition (Size boardSize, float squareEdgeLength, vector<Point3f>& conrners) {
 		cout << "creating createKnownBoardPosition" << endl;
@@ -78,11 +79,12 @@ private:
 		}
 	}
 
-	void printCalibToFile(Mat& K, Mat& distanceCoeffs) {
+	void printCalibToFile(Mat& K, Mat& distanceCoeffs, double error) {
 		cout << "priting camera info to file .." << endl;
 		FileStorage fs("calibInfo.yml", FileStorage::WRITE);
 		fs << "K" << K;
 		fs << "distanceCoeffs" << distanceCoeffs;
+		fs << "error" << error;
 		fs.release(); 
 	}
 

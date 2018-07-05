@@ -85,11 +85,6 @@ int main(int argc, char** argv) {
 	sift->compute(img2, keypoint_img2, descriptor_img2);
 	cout << "done detecting and computing features" << endl;
 
-	// Ptr<DescriptorExtractor> extractor = SIFT::create();
-	// extractor->compute(img1, keypoint_img1, descriptor_img1);
-	// extractor->compute(img2, keypoint_img2, descriptor_img2);
-	// cout << "done computing descriptors" << endl;
-
 	BFMatcher matcher(NORM_L2, true);
 	vector<DMatch> matches;
 	matcher.match(descriptor_img1, descriptor_img2, matches);
@@ -109,7 +104,7 @@ int main(int argc, char** argv) {
 
 		double dist = sqrt((from.x - to.x) * (from.x - to.x) + 
 			(from.y - to.y) * (from.y - to.y));
-		if (dist < treshold && abs(from.y - to.y) < 5) {
+		if (dist < treshold && abs(from.y - to.y) < 8) {
 			good_matches.push_back(matches[i]);
 		}
 	}
@@ -117,55 +112,86 @@ int main(int argc, char** argv) {
 	cout << "img1 keypoints: " << keypoint_img1.size() << endl;
 	cout << "img2 keypoints: " << keypoint_img2.size() << endl;
 
+	//now we allign the matched points.
+	vector<KeyPoint> pts1, pts2;
+	for (int i = 0; i < good_matches.size(); ++i) {
+		assert(good_matches[i].queryIdx < keypoint_img1.size());
+		pts1.push_back(keypoint_img1[good_matches[i].queryIdx]);
+		assert(good_matches[i].trainIdx < keypoint_img2.size());
+		pts2.push_back(keypoint_img2[good_matches[i].trainIdx]);
+	}
+
+	cout << "size pts1: " << pts1.size() << endl;
+	cout << "size pts2: " << pts2.size() << endl;
+
+	//finding inliers with the homography matrix.
+	vector<Point2f> src(good_matches.size());
+	vector<Point2f> dst(good_matches.size());
+	for (int i = 0; i < good_matches.size(); ++i) {
+		src[i] = pts1[good_matches[i].trainIdx].pt;
+		dst[i] = pts2[good_matches[i].queryIdx].pt;
+	}
+	vector<unsigned char> inlierMask(src.size());
+	double reproj_threshold = 3.0;
+	Mat homography = findHomography(src, dst, CV_FM_RANSAC, reproj_threshold, inlierMask);
+	vector<DMatch> inliers;
+	for (size_t i = 0; i < inlierMask.size(); ++i) {
+		if (inlierMask[i]) {
+			inliers.push_back(good_matches[i]);
+		}
+	}
+	good_matches.swap(inliers);
+	if (good_matches.size() < 8) {
+		cout << "not enough matches were found" << endl;
+		return -1;
+	} else {
+		cout << "inliers: " << good_matches.size() << endl;
+	}
+
+
+
 	//draw the matches found.
 	Mat img_matches;
 	drawMatches(img1, keypoint_img1, img2, keypoint_img2, good_matches, img_matches,
 				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
 	imwrite("matches.jpg", img_matches);
+	cout << "image saved" << endl;
 
-	vector<Point2f> img1_obj;
-	vector<Point2f> img2_obj;
+	//find the fundamnetal matrix
+	Mat F = findFundamentalMat(src, dst, FM_RANSAC, 0.1, 0.99);
 
-	// for (int i = 0; i < matches.size(); ++i) {
-	// 	img1_obj.push_back(keypoint_img1[matches[i].queryIdx].pt);
-	// 	img2_obj.push_back(keypoint_img2[matches[i].trainIdx].pt);
-	// }
+	//compute the essential matrix.
+	Mat_<double> E = K.t() * F * K;
+	Mat_<double> R1;
+	Mat_<double> R2;
+	Mat_<double> t1;
+	Mat_<double> t2;
+	bool res = DecomposeEssentialMat(E, R1, R2, t1, t2);
+	if (!res) {
+		cout << "decomposition failed" << endl;
+		return -1;
+	}	
 
-	// //find the fundamnetal matrix
-	// Mat F = findFundamentalMat(img1_obj, img2_obj, FM_RANSAC, 0.1, 0.99);
+	if (determinant(R1) + 1.0 < 1e-09) {
+		E = -E;
+		DecomposeEssentialMat(E, R1, R2, t1, t2);
+	}
 
-	// //compute the essential matrix.
-	// Mat_<double> E = K.t() * F * K;
-	// Mat_<double> R1;
-	// Mat_<double> R2;
-	// Mat_<double> t1;
-	// Mat_<double> t2;
-	// bool res = DecomposeEssentialMat(E, R1, R2, t1, t2);
-	// if (!res) {
-	// 	cout << "decomposition failed" << endl;
-	// 	return -1;
-	// }	
+	if (!checkRotationMat(R1)) {
+		cout << "Rotation Matrix is not correct" << endl;
+		return -1;
+	}
 
-	// if (determinant(R1) + 1.0 < 1e-09) {
-	// 	E = -E;
-	// 	DecomposeEssentialMat(E, R1, R2, t1, t2);
-	// }
-
-	// if (!checkRotationMat(R1)) {
-	// 	cout << "Rotation Matrix is not correct" << endl;
-	// 	return -1;
-	// }
-
-	// //now we find our camera matricies P and P1.
-	// //we assume that P = [I|0]
-	// Matx34d P1(1, 0, 0, 0,
-	// 	0, 1, 0, 0, 
-	// 	0, 0, 1, 0);
-	// Matx34d P2;
-	// //now test to see which of the 4 P2s are good.
-	// findP2Matrix(P1, P2, K, distanceCoeffs, keypoint_img1, keypoint_img2,
-	// 	R1 , R2, t1, t2);
+	//now we find our camera matricies P and P1.
+	//we assume that P = [I|0]
+	Matx34d P1(1, 0, 0, 0,
+		0, 1, 0, 0, 
+		0, 0, 1, 0);
+	Matx34d P2;
+	//now test to see which of the 4 P2s are good.
+	findP2Matrix(P1, P2, K, distanceCoeffs, keypoint_img1, keypoint_img2,
+		R1 , R2, t1, t2);
 
 	return 0;
 }
