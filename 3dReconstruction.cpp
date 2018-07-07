@@ -2,6 +2,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/core.hpp>
 #include <vector>
+#include <set>
 #include <string>
 #include <fstream>
 #include "opencv2/features2d.hpp"
@@ -65,7 +66,6 @@ int main(int argc, char** argv) {
 			show = false;
 		}
 		CameraCalib cc(argv[2], K, distanceCoeffs, rVectors, tVectors, show);
-		return 0;
 	} else if (argc == 2) {
 		//read in calibration info from file.
 		CameraCalib cc("calibInfo.yml", K, distanceCoeffs);
@@ -79,6 +79,7 @@ int main(int argc, char** argv) {
 	Ptr<Feature2D> sift = SIFT::create();
 	Mat descriptor_img1, descriptor_img2;
 	vector<KeyPoint> keypoint_img1, keypoint_img2;
+	cout << "<================== Begin Matching =============>" << endl;
 
 	sift->detect(img1, keypoint_img1);
 	sift->detect(img2, keypoint_img2);
@@ -93,37 +94,57 @@ int main(int argc, char** argv) {
 	cout << "found : " << matches.size() << " matches" << endl;
 
 	//filter the matches
-	cout << "filtering matches..." << endl;
-	double treshold = 0.25 * sqrt(double(img1.size().height * img1.size().height + 
-		img1.size().width * img1.size().width));
+	cout << "<================== filtering matches =============>" << endl;
 
+	set<int> existing_trainIdx;
 	vector<DMatch> good_matches;
-	good_matches.reserve(matches.size());
-	for (int i = 0; i < matches.size(); ++i) {
-		Point2f from = keypoint_img1[matches[i].queryIdx].pt;
-		Point2f to = keypoint_img2[matches[i].trainIdx].pt;
+	vector<KeyPoint> pts1, pts2;
 
-		double dist = sqrt((from.x - to.x) * (from.x - to.x) + 
-			(from.y - to.y) * (from.y - to.y));
-		if (dist < treshold && abs(from.y - to.y) < 8) {
+	for (unsigned int i = 0; i < matches.size(); ++i) {
+		if (matches[i].trainIdx <= 0) {
+			matches[i].trainIdx  = matches[i].imgIdx;
+		}
+
+		if (existing_trainIdx.find(matches[i].trainIdx) == existing_trainIdx.end() && 
+			matches[i].trainIdx >= 0 && matches[i].trainIdx < (int)(keypoint_img2.size())) {
 			good_matches.push_back(matches[i]);
+			pts1.push_back(keypoint_img1[matches[i].queryIdx]);
+			pts2.push_back(keypoint_img2[matches[i].trainIdx]);
+			existing_trainIdx.insert(matches[i].trainIdx);
 		}
 	}
-	cout << "new matches: " << good_matches.size() << endl;
-	cout << "img1 keypoints: " << keypoint_img1.size() << endl;
-	cout << "img2 keypoints: " << keypoint_img2.size() << endl;
 
-	//now we allign the matched points.
-	vector<KeyPoint> pts1, pts2;
+	vector<uchar> status;
+	vector<KeyPoint> pts1_good, pts2_good;
+
+	// now we allign the matched points.
+	vector<KeyPoint> pts1_temp, pts2_temp;
 	for (int i = 0; i < good_matches.size(); ++i) {
 		assert(good_matches[i].queryIdx < keypoint_img1.size());
-		pts1.push_back(keypoint_img1[good_matches[i].queryIdx]);
+		pts1_temp.push_back(keypoint_img1[good_matches[i].queryIdx]);
 		assert(good_matches[i].trainIdx < keypoint_img2.size());
-		pts2.push_back(keypoint_img2[good_matches[i].trainIdx]);
+		pts2_temp.push_back(keypoint_img2[good_matches[i].trainIdx]);
+	}
+	vector<Point2f> points1, points2;
+	for (unsigned int i = 0; i < good_matches.size(); ++i) {
+		points1.push_back(pts1_temp[i].pt);
+		points2.push_back(pts2_temp[i].pt);
 	}
 
-	cout << "size pts1: " << pts1.size() << endl;
-	cout << "size pts2: " << pts2.size() << endl;
+	double min, max;
+	minMaxIdx(points1, &min, &max);
+	Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99, status);
+	vector<DMatch> new_matches;
+	for (unsigned int i = 0; i < status.size(); ++i) {
+		if (status[i]) {
+			pts1_good.push_back(pts1_temp[i]);
+			pts2_good.push_back(pts2_temp[i]);
+
+			new_matches.push_back(good_matches[i]);
+		}
+	}
+	cout << "after fund matrix matches: " << new_matches.size() << endl;
+	good_matches = new_matches;
 
 	//finding inliers with the homography matrix.
 	vector<Point2f> src(good_matches.size());
@@ -159,8 +180,9 @@ int main(int argc, char** argv) {
 	imwrite("matches.jpg", img_matches);
 	cout << "image saved" << endl;
 
+	cout << "<================== Decomposing E =============>" << endl;
 	//find the fundamnetal matrix
-	Mat F = findFundamentalMat(src, dst, FM_RANSAC, 0.1, 0.99);
+	F = findFundamentalMat(src, dst, FM_RANSAC, 0.1, 0.99);
 
 	//compute the essential matrix.
 	Mat_<double> E = K.t() * F * K;
@@ -168,15 +190,13 @@ int main(int argc, char** argv) {
 	Mat_<double> R2;
 	Mat_<double> t1;
 	Mat_<double> t2;
-	bool res = DecomposeEssentialMat(E, R1, R2, t1, t2);
-	if (!res) {
-		cout << "decomposition failed" << endl;
-		return -1;
-	}	
+	decomposeEssentialMat(E, R1, R2, t1);
+	t2 = -t1;
+	cout << "decomp E was success" << endl;
 
 	if (determinant(R1) + 1.0 < 1e-09) {
 		E = -E;
-		DecomposeEssentialMat(E, R1, R2, t1, t2);
+		decomposeEssentialMat(E, R1, R2, t1);
 	}
 
 	if (!checkRotationMat(R1)) {
@@ -184,8 +204,11 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
+	//TODO: test to see if the found E is good.
+
 	//now we find our camera matricies P and P1.
 	//we assume that P = [I|0]
+	cout << "<================== Searching for P2 =============>" << endl;
 	Matx34d P1(1, 0, 0, 0,
 		0, 1, 0, 0, 
 		0, 0, 1, 0);
@@ -193,6 +216,7 @@ int main(int argc, char** argv) {
 	//now test to see which of the 4 P2s are good.
 	findP2Matrix(P1, P2, K, distanceCoeffs, keypoint_img1, keypoint_img2,
 		R1 , R2, t1, t2);
+	cout << "found P2" << endl;
 
 	return 0;
 }
