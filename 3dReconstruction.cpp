@@ -4,6 +4,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <map>
 #include <fstream>
 #include "opencv2/features2d.hpp"
 #include "opencv2/xfeatures2d.hpp"
@@ -75,16 +76,17 @@ int main(int argc, char** argv) {
 	Mat img1 = images[0];
 	Mat img2 = images[1];
 
-	//this is our surf keypoints detector
-	Ptr<Feature2D> sift = SIFT::create();
+	//this is our sift keypoints detector
+	int min_hessian = 400;
+	Ptr<Feature2D> surf = SURF::create(min_hessian);
 	Mat descriptor_img1, descriptor_img2;
 	vector<KeyPoint> keypoint_img1, keypoint_img2;
-	cout << "<================== Begin Matching =============>" << endl;
+	cout << "<================== Begin Matching =============>\n" << endl;
 
-	sift->detect(img1, keypoint_img1);
-	sift->detect(img2, keypoint_img2);
-	sift->compute(img1, keypoint_img1, descriptor_img1);
-	sift->compute(img2, keypoint_img2, descriptor_img2);
+	surf->detect(img1, keypoint_img1);
+	surf->detect(img2, keypoint_img2);
+	surf->compute(img1, keypoint_img1, descriptor_img1);
+	surf->compute(img2, keypoint_img2, descriptor_img2);
 	cout << "done detecting and computing features" << endl;
 
 	BFMatcher matcher(NORM_L2, true);
@@ -94,7 +96,7 @@ int main(int argc, char** argv) {
 	cout << "found : " << matches.size() << " matches" << endl;
 
 	//filter the matches
-	cout << "<================== filtering matches =============>" << endl;
+	cout << "\n<================== filtering matches =============>\n" << endl;
 
 	set<int> existing_trainIdx;
 	vector<DMatch> good_matches;
@@ -145,32 +147,12 @@ int main(int argc, char** argv) {
 	}
 	cout << "after fund matrix matches: " << new_matches.size() << endl;
 	good_matches = new_matches;
-
-	//finding inliers with the homography matrix.
-	vector<Point2f> src(good_matches.size());
-	vector<Point2f> dst(good_matches.size());
-	for (int i = 0; i < good_matches.size(); ++i) {
-		src[i] = pts1[good_matches[i].trainIdx].pt;
-		dst[i] = pts2[good_matches[i].queryIdx].pt;
+	points1.clear();
+	points2.clear();
+	for (unsigned int i = 0; i < good_matches.size(); ++i) {
+		points1.push_back(pts1_temp[i].pt);
+		points2.push_back(pts2_temp[i].pt);
 	}
-	vector<unsigned char> inlierMask(src.size());
-	double reproj_threshold = 3.0;
-	Mat homography = findHomography(src, dst, CV_FM_RANSAC, reproj_threshold, inlierMask);
-	vector<DMatch> inliers;
-	for (size_t i = 0; i < inlierMask.size(); ++i) {
-		if (inlierMask[i]) {
-			inliers.push_back(good_matches[i]);
-		}
-	}
-	good_matches.swap(inliers);
-	if (good_matches.size() < 8) {
-		cout << "not enough matches were found" << endl;
-		return -1;
-	} else {
-		cout << "inliers: " << good_matches.size() << endl;
-	}
-
-
 
 	//draw the matches found.
 	Mat img_matches;
@@ -180,43 +162,49 @@ int main(int argc, char** argv) {
 	imwrite("matches.jpg", img_matches);
 	cout << "image saved" << endl;
 
-	cout << "<================== Decomposing E =============>" << endl;
+	cout << "\n<================== Decomposing E =============>\n" << endl;
 	//find the fundamnetal matrix
-	F = findFundamentalMat(src, dst, FM_RANSAC, 0.1, 0.99);
+	F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99);
 
 	//compute the essential matrix.
 	Mat_<double> E = K.t() * F * K;
-	Mat_<double> R1;
-	Mat_<double> R2;
-	Mat_<double> t1;
-	Mat_<double> t2;
-	decomposeEssentialMat(E, R1, R2, t1);
-	t2 = -t1;
-	cout << "decomp E was success" << endl;
+	Mat_<double> R1, R2, t1, t2;
+	Mat u, vt, w;
 
+	//decompose the essential matrix
+	DecomposeEssentialMat(E, R1, R2, t1, t2);
+
+	//check if the decomposition was successful.
 	if (determinant(R1) + 1.0 < 1e-09) {
 		E = -E;
 		decomposeEssentialMat(E, R1, R2, t1);
 	}
-
 	if (!checkRotationMat(R1)) {
 		cout << "Rotation Matrix is not correct" << endl;
 		return -1;
 	}
-
-	//TODO: test to see if the found E is good.
+	if (determinant(E) > 1e-05) {
+		cout << "Essential Matrix determinant must be 0, but was: " << endl;
+		cout << determinant(E) << endl;
+		return -1;
+	}
+	cout << "decomposition was successful" << endl;
 
 	//now we find our camera matricies P and P1.
 	//we assume that P = [I|0]
-	cout << "<================== Searching for P2 =============>" << endl;
+	cout << "\n<================== Searching for P2 =============>\n" << endl;
 	Matx34d P1(1, 0, 0, 0,
 		0, 1, 0, 0, 
 		0, 0, 1, 0);
 	Matx34d P2;
 	//now test to see which of the 4 P2s are good.
-	findP2Matrix(P1, P2, K, distanceCoeffs, keypoint_img1, keypoint_img2,
-		R1 , R2, t1, t2);
-	cout << "found P2" << endl;
+	bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, pts1_good, 
+		pts2_good, R1 , R2, t1, t2);
+	if (!foundCameraMat) {
+		cout << "p2 was not found successfully" << endl;
+	} else {
+		cout << "p2 found successfully" << endl;
+	}
 
 	return 0;
 }
@@ -242,6 +230,9 @@ bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	if (svr < 0.7) {
 		cout << "singular values are too far apart" << endl;
 		return false;
+	} else if (w.at<double>(2) > 1e-09) {
+		cout << "final singluar value should be 0" << endl;
+		return -1;
 	}
 
 	Matx33d W(0, -1, 0,
@@ -331,8 +322,8 @@ Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, 
 * This function computes a point cloud from given key points in the 2 images
 * and given camera matricies.
 */
-double TriangulatePoints(const vector<KeyPoint>& keypoint_img1, 
-	const vector<KeyPoint>& keypoint_img2,
+double TriangulatePoints(const vector<KeyPoint>& pts1_good, 
+	const vector<KeyPoint>& pts2_good,
 	const Mat& K, const Mat& Kinv, 
 	const Mat& distanceCoeffs, 
 	const Matx34d& P1, const Matx34d& P2,
@@ -340,6 +331,8 @@ double TriangulatePoints(const vector<KeyPoint>& keypoint_img1,
 	vector<KeyPoint>& correspondingImg1Pt) {
 
 	cout << "starting TriangulatePoints.. " << endl;
+	vector<double> reprojectionError;
+	int size = pts1_good.size();
 	correspondingImg1Pt.clear();
 
 	Matx44d P2_(P2(0,0),P2(0,1),P2(0,2),P2(0,3),
@@ -348,19 +341,16 @@ double TriangulatePoints(const vector<KeyPoint>& keypoint_img1,
 				0,		0,		0,		1);
 	Matx44d P2inv(P2_.inv());
 
-	vector<double> reprojectionError;
-	int size = keypoint_img1.size();
-
 	Mat_<double> KP2 = K * Mat(P2);
 
 	//triangulate every single feature
 	for (int i = 0; i < size; ++i) {
 		//point from image 1
-		Point2f kp1 = keypoint_img1[i].pt;
+		Point2f kp1 = pts1_good[i].pt;
 		Point3d u1(kp1.x, kp1.y, 1.0);
 
 		//point from image 2
-		Point2f kp2 = keypoint_img2[i].pt;
+		Point2f kp2 = pts2_good[i].pt;
 		Point3d u2(kp2.x, kp2.y, 1.0);
 
 		Mat_<double> um1 = Kinv * Mat_<double>(u1);
@@ -388,7 +378,7 @@ double TriangulatePoints(const vector<KeyPoint>& keypoint_img1,
 		cp.pt = Point3d(X(0), X(1), X(2));
 		cp.reprojection_error = err;
 		pointCloud.push_back(cp);
-		correspondingImg1Pt.push_back(keypoint_img1[i]);
+		correspondingImg1Pt.push_back(pts1_good[i]);
 	} 
 	Scalar mse = mean(reprojectionError);
 	cout << "finished triangulation with: " << mse[0] << " error" << endl;
@@ -458,6 +448,7 @@ bool checkRotationMat(Mat_<double>& R1) {
 */
 bool testTriangulation(vector<CloudPoint>& pointCloud, const Matx34d& P,
 	vector<uchar>& status) {
+	status.clear();
 	vector<Point3d> pcloud_pt3d;
 	transformCloudPoints(pcloud_pt3d, pointCloud);
 	vector<Point3d> pcloud_pt3d_projected(pcloud_pt3d.size());
@@ -497,7 +488,7 @@ void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPo
 * This function tests all 3 different possible P2 matricies and picks one or none.
 */
 bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoeffs,
-	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
+	vector<KeyPoint>& pts1_good, vector<KeyPoint>& pts2_good,
 	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, Mat_<double> t2) {
 	P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	t1(0),
 				R1(1,0),	R1(1,1),	R1(1,2),	t1(1),
@@ -508,10 +499,10 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 	vector<KeyPoint> correspondingImg1pts;
 	Mat Kinv = K.inv();
 
-	cout << "starting test for P2, first configuration" << endl;
-	double reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+	cout << "starting test for P2, first configuration: \n" << endl;
+	double reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 		distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-	double reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+	double reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 		distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 
 	vector<uchar> temp_status;
@@ -523,14 +514,14 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 		P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	t2(0),
 			R1(1,0),	R1(1,1),	R1(1,2),	t2(1),
 			R1(2,0), R1(2,1), R1(2,2), t2(2));
-		cout << "starting test for P2, second configuration" << endl;
+		cout << "\nstarting test for P2, second configuration: \n" << endl;
 		pointCloud1.clear();
 		pointCloud2.clear();
 		correspondingImg1pts.clear();
 
-		reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+		reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 			distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-		reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+		reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 			distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 
 		if (!testTriangulation(pointCloud1, P2, temp_status) 
@@ -546,15 +537,15 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 			P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	t1(0),
 					R2(1,0),	R2(1,1),	R2(1,2),	t1(1),
 					R2(2,0), R2(2,1), R2(2,2), t1(2));
-			cout << "starting test for P2, thrid configuration" << endl;
+			cout << "\nstarting test for P2, thrid configuration: \n" << endl;
 
 			pointCloud1.clear();
 			pointCloud2.clear();
 			correspondingImg1pts.clear();
 
-			reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+			reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 				distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-			reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+			reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 				distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 
 			if (!testTriangulation(pointCloud1, P2, temp_status) 
@@ -565,19 +556,19 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 				P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	t2(0),
 						R2(1,0),	R2(1,1),	R2(1,2),	t2(1),
 						R2(2,0), R2(2,1), R2(2,2), t2(2));
-				cout << "starting test for last P2 configuration" << endl;
+				cout << "\nstarting test for last P2 configuration: \n" << endl;
 				pointCloud1.clear();
 				pointCloud2.clear();
 				correspondingImg1pts.clear();
 
-				reproj_err1 = TriangulatePoints(keypoint_img1, keypoint_img2, K, Kinv,
+				reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 					distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-				reproj_err2 = TriangulatePoints(keypoint_img2, keypoint_img1, K, Kinv,
+				reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 					distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 				if (!testTriangulation(pointCloud1, P2, temp_status) 
 					|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
 					|| reproj_err2 > 100.0) {
-					cout << "could not find a good P2.." << endl;
+					cout << "\nerr: could not find a good P2.." << endl;
 					return false;
 				}
 			}
