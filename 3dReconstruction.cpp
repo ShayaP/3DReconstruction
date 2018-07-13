@@ -1,50 +1,25 @@
 #include <iostream>
-#include <opencv2/highgui.hpp>
-#include <opencv2/core/core.hpp>
 #include <vector>
 #include <set>
 #include <string>
 #include <map>
 #include <fstream>
+
+#include <opencv2/highgui.hpp>
+#include <opencv2/core/core.hpp>
 #include "opencv2/features2d.hpp"
 #include "opencv2/xfeatures2d.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/stitching.hpp"
 #include <opencv2/imgproc/imgproc.hpp>
+
 #include "CameraCalib.hpp"
+#include "3dReconstruction.hpp"
 
 using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace cv::detail;
-
-struct CloudPoint {
-	cv::Point3d pt;
-	std::vector<int> imgpt_for_img;
-	double reprojection_error;
-};
-
-//decalre functions:
-void processImages(vector<Mat> &images, char* dirName);
-Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2);
-Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2);
-double TriangulatePoints(const vector<KeyPoint>& keypoint_img1, 
-	const vector<KeyPoint>& keypoint_img2,
-	const Mat& K, const Mat& Kinv, 
-	const Mat& distanceCoeffs, 
-	const Matx34d& P1, const Matx34d& P2,
-	vector<CloudPoint>& pointCloud,
-	vector<KeyPoint>& correspondingImg1Pt);
-bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
-	Mat_<double>& t1, Mat_<double>& t2); 
-bool checkRotationMat(Mat_<double>& R1);
-bool testTriangulation(const vector<CloudPoint>& pointCloud, const Matx34d& P,
-	vector<uchar>& status);
-void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPoints);
-bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoeffs,
-	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
-	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, Mat_<double> t2);
-
 
 int main(int argc, char** argv) {
 
@@ -59,6 +34,7 @@ int main(int argc, char** argv) {
 
 	if (argc < 2) {
 		cout << "wrong number of arguments" << endl;
+		useage();
 		return -1;
 	} else if (argc == 4) {
 		if (atoi(argv[3]) == 1) {
@@ -67,9 +43,17 @@ int main(int argc, char** argv) {
 			show = false;
 		}
 		CameraCalib cc(argv[2], K, distanceCoeffs, rVectors, tVectors, show);
+	} else if (argc == 3) {
+		if (atoi(argv[2]) == 1) {
+			show = true;
+		} else {
+			show = false;
+		}
+		CameraCalib cc("calibInfo.yml", K, distanceCoeffs);
 	} else if (argc == 2) {
 		//read in calibration info from file.
 		CameraCalib cc("calibInfo.yml", K, distanceCoeffs);
+		show = false;
 	}
 
 	processImages(images, argv[1]);
@@ -93,7 +77,9 @@ int main(int argc, char** argv) {
 	vector<DMatch> matches;
 	matcher.match(descriptor_img1, descriptor_img2, matches);
 
-	cout << "found : " << matches.size() << " matches" << endl;
+	if (show) {
+		cout << "found : " << matches.size() << " matches" << endl;
+	}
 
 	//filter the matches
 	cout << "\n<================== filtering matches =============>\n" << endl;
@@ -145,7 +131,9 @@ int main(int argc, char** argv) {
 			new_matches.push_back(good_matches[i]);
 		}
 	}
-	cout << "after fund matrix matches: " << new_matches.size() << endl;
+	if (show) {
+		cout << "after fund matrix matches: " << new_matches.size() << endl;
+	}
 	good_matches = new_matches;
 	points1.clear();
 	points2.clear();
@@ -160,7 +148,9 @@ int main(int argc, char** argv) {
 				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
 	imwrite("matches.jpg", img_matches);
-	cout << "image saved" << endl;
+	if (show) {
+		cout << "image saved" << endl;
+	}
 
 	cout << "\n<================== Decomposing E =============>\n" << endl;
 	//find the fundamnetal matrix
@@ -168,16 +158,16 @@ int main(int argc, char** argv) {
 
 	//compute the essential matrix.
 	Mat_<double> E = K.t() * F * K;
-	Mat_<double> R1, R2, t1, t2;
+	Mat_<double> R1, R2, t1;
 	Mat u, vt, w;
 
 	//decompose the essential matrix
-	DecomposeEssentialMat(E, R1, R2, t1, t2);
+	DecomposeEssentialMat(E, R1, R2, t1);
 
 	//check if the decomposition was successful.
 	if (determinant(R1) + 1.0 < 1e-09) {
 		E = -E;
-		decomposeEssentialMat(E, R1, R2, t1);
+		DecomposeEssentialMat(E, R1, R2, t1);
 	}
 	if (!checkRotationMat(R1)) {
 		cout << "Rotation Matrix is not correct" << endl;
@@ -199,7 +189,7 @@ int main(int argc, char** argv) {
 	Matx34d P2;
 	//now test to see which of the 4 P2s are good.
 	bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, pts1_good, 
-		pts2_good, R1 , R2, t1, t2);
+		pts2_good, R1 , R2, t1, show);
 	if (!foundCameraMat) {
 		cout << "p2 was not found successfully" << endl;
 	} else {
@@ -214,7 +204,7 @@ int main(int argc, char** argv) {
 * Returns: Rotation Matricies (R1, R2) and Translation Matricies (t1, t2).
 */
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
-	Mat_<double>& t1, Mat_<double>& t2) {
+	Mat_<double>& t1) {
 	SVD decomp = SVD(E, SVD::MODIFY_A);
 
 	//decomposition of E.
@@ -244,7 +234,6 @@ bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	R1 = U * Mat(W) * vt;
 	R2 = U * Mat(Wt) * vt;
 	t1 = U.col(2);
-	t2 = -U.col(2);
 	return true;
 }
 
@@ -328,9 +317,11 @@ double TriangulatePoints(const vector<KeyPoint>& pts1_good,
 	const Mat& distanceCoeffs, 
 	const Matx34d& P1, const Matx34d& P2,
 	vector<CloudPoint>& pointCloud,
-	vector<KeyPoint>& correspondingImg1Pt) {
+	vector<KeyPoint>& correspondingImg1Pt, bool show) {
 
-	cout << "starting TriangulatePoints.. " << endl;
+	if (show) {
+		cout << "starting TriangulatePoints.. " << endl;
+	}
 	vector<double> reprojectionError;
 	int size = pts1_good.size();
 	correspondingImg1Pt.clear();
@@ -381,7 +372,9 @@ double TriangulatePoints(const vector<KeyPoint>& pts1_good,
 		correspondingImg1Pt.push_back(pts1_good[i]);
 	} 
 	Scalar mse = mean(reprojectionError);
-	cout << "finished triangulation with: " << mse[0] << " error" << endl;
+	if (show) {
+		cout << "finished triangulation with: " << mse[0] << " error" << endl;
+	}
 	return mse[0];
 } 
 
@@ -447,7 +440,7 @@ bool checkRotationMat(Mat_<double>& R1) {
 * this test is a success.
 */
 bool testTriangulation(vector<CloudPoint>& pointCloud, const Matx34d& P,
-	vector<uchar>& status) {
+	vector<uchar>& status, bool show) {
 	status.clear();
 	vector<Point3d> pcloud_pt3d;
 	transformCloudPoints(pcloud_pt3d, pointCloud);
@@ -466,7 +459,9 @@ bool testTriangulation(vector<CloudPoint>& pointCloud, const Matx34d& P,
 	int count = countNonZero(status);
 
 	double percentage = ((double)count / (double)pointCloud.size());
-	cout << "percentage of points infront of camera: " << percentage << endl;
+	if (show) {
+		cout << "percentage of points infront of camera: " << percentage << endl;
+	}
 	if (percentage <  0.75) {
 		return false;
 	} else {
@@ -484,12 +479,19 @@ void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPo
 	}
 }
 
+void useage() {
+	cout << "Useage: \n" << endl;
+	cout << "./3drecon <image directory>" << endl;
+	cout << "./3drecon <image directory> <verbose>" << endl;
+	cout << "./3drecon <image directory> <calibration image path> <verbose>" << endl;
+}
+
 /**
 * This function tests all 3 different possible P2 matricies and picks one or none.
 */
 bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoeffs,
 	vector<KeyPoint>& pts1_good, vector<KeyPoint>& pts2_good,
-	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, Mat_<double> t2) {
+	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, bool show) {
 	P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	t1(0),
 				R1(1,0),	R1(1,1),	R1(1,2),	t1(1),
 				R1(2,0), R1(2,1), R1(2,2), t1(2));
@@ -499,37 +501,41 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 	vector<KeyPoint> correspondingImg1pts;
 	Mat Kinv = K.inv();
 
-	cout << "starting test for P2, first configuration: \n" << endl;
-	cout << "Testing P2 "<< endl << Mat(P2) << endl;
-	cout << endl;
+	if (show) {
+		cout << "starting test for P2, first configuration: \n" << endl;
+		cout << "Testing P2 "<< endl << Mat(P2) << endl;
+		cout << endl;
+	}
 	double reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
-		distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+		distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts, show);
 	double reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
-		distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
+		distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts, show);
 
 	vector<uchar> temp_status;
 
-	if (!testTriangulation(pointCloud1, P2, temp_status) 
-		|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+	if (!testTriangulation(pointCloud1, P2, temp_status, show) 
+		|| !testTriangulation(pointCloud2, P1, temp_status, show) || reproj_err1 > 100.0
 		|| reproj_err2 > 100.0) {
 		//try a new P2
 		P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	-t1(0),
 			R1(1,0),	R1(1,1),	R1(1,2),	-t1(1),
 			R1(2,0), R1(2,1), R1(2,2), -t1(2));
-		cout << "\nstarting test for P2, second configuration: \n" << endl;
-		cout << "Testing P2 "<< endl << Mat(P2) << endl;
-		cout << endl;
+		if (show) {
+			cout << "\nstarting test for P2, second configuration: \n" << endl;
+			cout << "Testing P2 "<< endl << Mat(P2) << endl;
+			cout << endl;
+		}
 		pointCloud1.clear();
 		pointCloud2.clear();
 		correspondingImg1pts.clear();
 
 		reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
-			distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+			distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts, show);
 		reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
-			distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
+			distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts, show);
 
-		if (!testTriangulation(pointCloud1, P2, temp_status) 
-			|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+		if (!testTriangulation(pointCloud1, P2, temp_status, show) 
+			|| !testTriangulation(pointCloud2, P1, temp_status, show) || reproj_err1 > 100.0
 			|| reproj_err2 > 100.0) {
 			if (!checkRotationMat(R2)) {
 				cout << "R2 was not valid" << endl;
@@ -541,40 +547,47 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 			P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	t1(0),
 					R2(1,0),	R2(1,1),	R2(1,2),	t1(1),
 					R2(2,0), R2(2,1), R2(2,2), t1(2));
-			cout << "\nstarting test for P2, thrid configuration: \n" << endl;
-			cout << "Testing P2 "<< endl << Mat(P2) << endl;
-			cout << endl;
 
+			if (show) {
+				cout << "\nstarting test for P2, thrid configuration: \n" << endl;
+				cout << "Testing P2 "<< endl << Mat(P2) << endl;
+				cout << endl;
+			}
+			
 			pointCloud1.clear();
 			pointCloud2.clear();
 			correspondingImg1pts.clear();
 
 			reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
-				distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+				distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts, show);
 			reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
-				distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
+				distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts, show);
 
-			if (!testTriangulation(pointCloud1, P2, temp_status) 
-				|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+			if (!testTriangulation(pointCloud1, P2, temp_status, show) 
+				|| !testTriangulation(pointCloud2, P1, temp_status, show) || reproj_err1 > 100.0
 				|| reproj_err2 > 100.0) {
 
 				//try the last P2
 				P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	-t1(0),
 						R2(1,0),	R2(1,1),	R2(1,2),	-t1(1),
 						R2(2,0), R2(2,1), R2(2,2), -t1(2));
-				cout << "\nstarting test for last P2 configuration: \n" << endl;
-				cout << "Testing P2 "<< endl << Mat(P2) << endl;
-				cout << endl;
+
+				if (show) {
+					cout << "\nstarting test for last P2 configuration: \n" << endl;
+					cout << "Testing P2 "<< endl << Mat(P2) << endl;
+					cout << endl;
+				}
+				
 				pointCloud1.clear();
 				pointCloud2.clear();
 				correspondingImg1pts.clear();
 
 				reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
-					distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
+					distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts, show);
 				reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
-					distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
-				if (!testTriangulation(pointCloud1, P2, temp_status) 
-					|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
+					distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts, show);
+				if (!testTriangulation(pointCloud1, P2, temp_status, show) 
+					|| !testTriangulation(pointCloud2, P1, temp_status, show) || reproj_err1 > 100.0
 					|| reproj_err2 > 100.0) {
 					return false;
 				}
