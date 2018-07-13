@@ -500,9 +500,11 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 	Mat Kinv = K.inv();
 
 	cout << "starting test for P2, first configuration: \n" << endl;
+	cout << "Testing P2 "<< endl << Mat(P2) << endl;
+	cout << endl;
 	double reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 		distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-	double reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
+	double reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
 		distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 
 	vector<uchar> temp_status;
@@ -511,17 +513,19 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 		|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
 		|| reproj_err2 > 100.0) {
 		//try a new P2
-		P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	t2(0),
-			R1(1,0),	R1(1,1),	R1(1,2),	t2(1),
-			R1(2,0), R1(2,1), R1(2,2), t2(2));
+		P2 = Matx34d(R1(0,0),	R1(0,1),	R1(0,2),	-t1(0),
+			R1(1,0),	R1(1,1),	R1(1,2),	-t1(1),
+			R1(2,0), R1(2,1), R1(2,2), -t1(2));
 		cout << "\nstarting test for P2, second configuration: \n" << endl;
+		cout << "Testing P2 "<< endl << Mat(P2) << endl;
+		cout << endl;
 		pointCloud1.clear();
 		pointCloud2.clear();
 		correspondingImg1pts.clear();
 
 		reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 			distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-		reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
+		reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
 			distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 
 		if (!testTriangulation(pointCloud1, P2, temp_status) 
@@ -538,6 +542,8 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 					R2(1,0),	R2(1,1),	R2(1,2),	t1(1),
 					R2(2,0), R2(2,1), R2(2,2), t1(2));
 			cout << "\nstarting test for P2, thrid configuration: \n" << endl;
+			cout << "Testing P2 "<< endl << Mat(P2) << endl;
+			cout << endl;
 
 			pointCloud1.clear();
 			pointCloud2.clear();
@@ -545,7 +551,7 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 
 			reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 				distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-			reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
+			reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
 				distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 
 			if (!testTriangulation(pointCloud1, P2, temp_status) 
@@ -553,26 +559,28 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 				|| reproj_err2 > 100.0) {
 
 				//try the last P2
-				P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	t2(0),
-						R2(1,0),	R2(1,1),	R2(1,2),	t2(1),
-						R2(2,0), R2(2,1), R2(2,2), t2(2));
+				P2 = Matx34d(R2(0,0),	R2(0,1),	R2(0,2),	-t1(0),
+						R2(1,0),	R2(1,1),	R2(1,2),	-t1(1),
+						R2(2,0), R2(2,1), R2(2,2), -t1(2));
 				cout << "\nstarting test for last P2 configuration: \n" << endl;
+				cout << "Testing P2 "<< endl << Mat(P2) << endl;
+				cout << endl;
 				pointCloud1.clear();
 				pointCloud2.clear();
 				correspondingImg1pts.clear();
 
 				reproj_err1 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
 					distanceCoeffs, P1, P2, pointCloud1, correspondingImg1pts);
-				reproj_err2 = TriangulatePoints(pts1_good, pts2_good, K, Kinv,
+				reproj_err2 = TriangulatePoints(pts2_good, pts1_good, K, Kinv,
 					distanceCoeffs, P2, P1, pointCloud2, correspondingImg1pts);
 				if (!testTriangulation(pointCloud1, P2, temp_status) 
 					|| !testTriangulation(pointCloud2, P1, temp_status) || reproj_err1 > 100.0
 					|| reproj_err2 > 100.0) {
-					cout << "\nerr: could not find a good P2.." << endl;
 					return false;
 				}
 			}
 		}
 	}
+	return true;
 }
 //TODO: implement an autocalibration method for the camera intrinsics.
