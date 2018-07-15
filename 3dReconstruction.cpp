@@ -107,12 +107,7 @@ int main(int argc, char** argv) {
 
 	// now we allign the matched points.
 	vector<KeyPoint> pts1_temp, pts2_temp;
-	for (int i = 0; i < good_matches.size(); ++i) {
-		assert(good_matches[i].queryIdx < keypoint_img1.size());
-		pts1_temp.push_back(keypoint_img1[good_matches[i].queryIdx]);
-		assert(good_matches[i].trainIdx < keypoint_img2.size());
-		pts2_temp.push_back(keypoint_img2[good_matches[i].trainIdx]);
-	}
+	allignPoints(keypoint_img1, keypoint_img2, good_matches, pts1_temp, pts2_temp);
 	vector<Point2f> points1, points2;
 	for (unsigned int i = 0; i < good_matches.size(); ++i) {
 		points1.push_back(pts1_temp[i].pt);
@@ -192,8 +187,29 @@ int main(int argc, char** argv) {
 		pts2_good, R1 , R2, t1, show);
 	if (!foundCameraMat) {
 		cout << "p2 was not found successfully" << endl;
+		return -1;
 	} else {
 		cout << "p2 found successfully" << endl;
+	}
+
+	//get the baseline triangulation:
+	vector<CloudPoint> tri_pts;
+	vector<int> add_to_cloud;
+	vector<KeyPoint> correspondingImg1pts;
+	vector<CloudPoint> global_pcloud;
+	cout << "\n<================== Triangulating The Points =============>\n" << endl;
+	bool foundTriangulation = triangulateBetweenViews(P1, P2, tri_pts, good_matches, pts1_good, pts2_good,
+		K, K.inv(), distanceCoeffs, correspondingImg1pts, add_to_cloud, show,
+		global_pcloud);
+
+	if (!foundTriangulation || countNonZero(add_to_cloud) < 10) {
+		cout << "triangulation on the views failed" << endl;
+	} else {
+		for (int i = 0; i < add_to_cloud.size(); ++i) {
+			if (add_to_cloud[i] == 1) {
+				global_pcloud.push_back(tri_pts[i]);
+			}
+		}
 	}
 
 	return 0;
@@ -594,6 +610,107 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 			}
 		}
 	}
+	return true;
+}
+
+void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
+	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
+	vector<KeyPoint>& new_pts2) {
+	for (int i = 0; i < good_matches.size(); ++i) {
+		assert(good_matches[i].queryIdx < imgpts1.size());
+		new_pts1.push_back(imgpts1[good_matches[i].queryIdx]);
+		assert(good_matches[i].trainIdx < imgpts2.size());
+		new_pts2.push_back(imgpts2[good_matches[i].trainIdx]);
+	}
+}
+
+bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2, 
+	vector<CloudPoint>& tri_pts, vector<DMatch>& good_matches,
+	const vector<KeyPoint>& pts1_good, const vector<KeyPoint>& pts2_good,
+	const Mat& K, const Mat& Kinv, const Mat& distanceCoeffs, 
+	vector<KeyPoint>& correspImg1Pt, vector<int>& add_to_cloud,
+	bool show, vector<CloudPoint>& global_pcloud) {
+
+	//allignPoints(pts1_good, pts2_good, good_matches, pts1_temp, pts2_temp);
+	double err = TriangulatePoints(pts1_good, pts2_good, K, Kinv, distanceCoeffs,
+		P1, P2, tri_pts, correspImg1Pt, show);
+	if (show) {
+		cout << "reprojection error was: " << err << endl;
+		cout << "\ntri_pts size: " << tri_pts.size() << endl;
+	}
+	vector<uchar> trig_status;
+	cout << "\nbefore\n" << endl;
+	if (!testTriangulation(tri_pts, P1, trig_status, show) 
+		|| !testTriangulation(tri_pts, P2, trig_status, show)) {
+		cout << "err: triangulation failed" << endl;
+		return false;
+	}
+	cout << "\nafter\n" << endl;
+
+	vector<double> reproj_error;
+	for (int i = 0; i < tri_pts.size(); ++i) {
+		reproj_error.push_back(tri_pts[i].reprojection_error);
+	}
+	sort(reproj_error.begin(), reproj_error.end());
+	double err_cutoff = reproj_error[4 * reproj_error.size() / 5] * 2.4;
+
+	vector<CloudPoint> new_triangulated_filtered;
+	vector<DMatch> new_matches;
+	for (int i = 0; i < tri_pts.size(); ++i) {
+		if (trig_status[i] == 0) {
+			continue;
+		}
+		if (tri_pts[i].reprojection_error > 16.0) {
+			continue;
+		}
+		if (tri_pts[i].reprojection_error < 4.0 ||
+			tri_pts[i].reprojection_error < err_cutoff) {
+			new_triangulated_filtered.push_back(tri_pts[i]);
+			new_matches.push_back(good_matches[i]);
+		} else {
+			continue;
+		}
+	}
+
+	if (show) {
+		cout << "# points that are triangulated: " << new_triangulated_filtered.size() << endl;
+	}
+	if (new_triangulated_filtered.size() <= 0) {
+		cout << "err: could not find enough points" << endl;
+		return false;
+	}
+	tri_pts = new_triangulated_filtered;
+	good_matches = new_matches;
+	add_to_cloud.clear();
+	add_to_cloud.resize(tri_pts.size(), 1);
+	int found_in_other_views = 0;
+	for (int j = 0; j < tri_pts.size(); ++j) {
+		//currently this is 2 because we only have 2 views.
+		//TODO: change later.
+		tri_pts[j].imgpt_for_img = vector<int>(2, -1);
+		tri_pts[j].imgpt_for_img[0] = good_matches[j].queryIdx;
+		tri_pts[j].imgpt_for_img[1] = good_matches[j].trainIdx;
+		bool found = false;
+		vector<DMatch> submatches = good_matches;
+		for (int k = 0; k < submatches.size(); ++k) {
+			if (submatches[k].trainIdx == good_matches[j].trainIdx &&
+				!found) {
+				for (unsigned int pt3d = 0; pt3d < global_pcloud.size(); ++pt3d) {
+					global_pcloud[pt3d].imgpt_for_img[0] = good_matches[j].trainIdx;
+					global_pcloud[pt3d].imgpt_for_img[1] = good_matches[j].queryIdx;
+					found = true;
+					add_to_cloud[j] = 0;
+				}
+			}
+		}
+
+		if (found) {
+			found_in_other_views++;
+		} else {
+			add_to_cloud[j] = 1;		
+		}
+	}
+	cout << "add_to_cloud size: " << countNonZero(add_to_cloud) << endl;
 	return true;
 }
 //TODO: implement an autocalibration method for the camera intrinsics.
