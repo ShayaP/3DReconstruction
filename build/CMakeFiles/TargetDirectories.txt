@@ -1,0 +1,3 @@
+/mnt/e/CS and Programing/CTests/build/CMakeFiles/edit_cache.dir
+/mnt/e/CS and Programing/CTests/build/CMakeFiles/rebuild_cache.dir
+/mnt/e/CS and Programing/CTests/build/CMakeFiles/3drecon.dir

@@ -1,18 +1,3 @@
-#include <iostream>
-#include <vector>
-#include <set>
-#include <string>
-#include <map>
-#include <fstream>
-
-#include <opencv2/highgui.hpp>
-#include <opencv2/core/core.hpp>
-#include "opencv2/features2d.hpp"
-#include "opencv2/xfeatures2d.hpp"
-#include "opencv2/calib3d/calib3d.hpp"
-#include "opencv2/stitching.hpp"
-#include <opencv2/imgproc/imgproc.hpp>
-
 #include "CameraCalib.hpp"
 #include "3dReconstruction.hpp"
 
@@ -25,6 +10,7 @@ int main(int argc, char** argv) {
 
 	//vector used to hold the images
 	vector<Mat> images;
+	vector<Mat> imagesColored;
 	bool show;
 
 	//camera matricies.
@@ -49,40 +35,33 @@ int main(int argc, char** argv) {
 		} else {
 			show = false;
 		}
-		CameraCalib cc("calibInfo.yml", K, distanceCoeffs);
+		CameraCalib cc("../calibInfo.yml", K, distanceCoeffs);
 	} else if (argc == 2) {
 		//read in calibration info from file.
-		CameraCalib cc("calibInfo.yml", K, distanceCoeffs);
+		CameraCalib cc("../calibInfo.yml", K, distanceCoeffs);
 		show = false;
 	}
 
-	processImages(images, argv[1]);
-	Mat img1 = images[0];
-	Mat img2 = images[1];
+	cout << "\n<================== Finding Images =============>\n" << endl;
+	processImages(images, imagesColored, argv[1], show);
 
-	//this is our sift keypoints detector
-	int min_hessian = 400;
-	Ptr<Feature2D> surf = SURF::create(min_hessian);
-	Mat descriptor_img1, descriptor_img2;
-	vector<KeyPoint> keypoint_img1, keypoint_img2;
-	cout << "<================== Begin Matching =============>\n" << endl;
+	vector<Mat> descriptors;
+	descriptors.resize(images.size(), Mat());
+	vector<vector<KeyPoint>> keypoints;
+	keypoints.resize(images.size(), vector<KeyPoint>());
+	cout << "<================== Detecting Features =============>\n" << endl;
 
-	surf->detect(img1, keypoint_img1);
-	surf->detect(img2, keypoint_img2);
-	surf->compute(img1, keypoint_img1, descriptor_img1);
-	surf->compute(img2, keypoint_img2, descriptor_img2);
-	cout << "done detecting and computing features" << endl;
+	findFeatures(images, keypoints, descriptors);
+	cout << "descriptors size: " << descriptors.size() << endl;
+	cout << "keypoints size " << keypoints.size() << endl;
+	cout << "---done detecting and computing features" << endl;
 
-	BFMatcher matcher(NORM_L2, true);
-	vector<DMatch> matches;
-	matcher.match(descriptor_img1, descriptor_img2, matches);
-
-	if (show) {
-		cout << "found : " << matches.size() << " matches" << endl;
-	}
+	cout << "<================== Matching Features =============>\n" << endl;
+	map<pair<int, int>, vector<DMatch>> matches;
+	matchFeatures(images, matches, descriptors, show);
 
 	//filter the matches
-	cout << "\n<================== filtering matches =============>\n" << endl;
+	cout << "\n<================== Filtering Matches =============>\n" << endl;
 
 	set<int> existing_trainIdx;
 	vector<DMatch> good_matches;
@@ -146,6 +125,7 @@ int main(int argc, char** argv) {
 	if (show) {
 		cout << "image saved" << endl;
 	}
+	//TODO: find homography inliers between the images and sort them.
 
 	cout << "\n<================== Decomposing E =============>\n" << endl;
 	//find the fundamnetal matrix
@@ -211,6 +191,14 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+	// //write the points to a file.
+	// ofstream myfile;
+	// myfile.open("points.txt");
+	// for (int i = 0; i < global_pcloud.size(); ++i) {
+	// 	Point3d p = global_pcloud[i].pt;
+	// 	myfile << p.x << " " << p.y << " " << p.z << endl;
+	// }
+	// myfile.close();
 
 	return 0;
 }
@@ -398,7 +386,8 @@ double TriangulatePoints(const vector<KeyPoint>& pts1_good,
 /**
 * this method processes the images in a directory and adds them to the list
 */
-void processImages(vector<Mat> &images, char* dirName) {
+void processImages(vector<Mat> &images, vector<Mat> &imagesColored, 
+	char* dirName, bool show) {
 	//access the image folder, and read each image into images.
 	DIR *dir;
 	struct dirent *entity;
@@ -414,13 +403,19 @@ void processImages(vector<Mat> &images, char* dirName) {
 				path.append("/");
 				path.append(entity->d_name);
 				Mat image = imread(path, IMREAD_GRAYSCALE);
-				if (!image.data) {
+				Mat imageColored = imread(path, IMREAD_COLOR);
+				if (!image.data || !imageColored.data) {
 					cout << "could not read image: " << entity->d_name << endl;
 				} else {
 					images.push_back(image);
+					imagesColored.push_back(imageColored);
 				}
 			}
 		}
+	}
+	if (show) {
+		cout << "found : " << imagesColored.size() << " colored images." << endl;
+		cout << "found : " << images.size() << " grayscale images." << endl;
 	}
 	closedir(dir);
 }
@@ -555,7 +550,6 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 			|| reproj_err2 > 100.0) {
 			if (!checkRotationMat(R2)) {
 				cout << "R2 was not valid" << endl;
-				P2 = 0;
 				return false;
 			}
 
@@ -639,13 +633,11 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 		cout << "\ntri_pts size: " << tri_pts.size() << endl;
 	}
 	vector<uchar> trig_status;
-	cout << "\nbefore\n" << endl;
 	if (!testTriangulation(tri_pts, P1, trig_status, show) 
 		|| !testTriangulation(tri_pts, P2, trig_status, show)) {
 		cout << "err: triangulation failed" << endl;
 		return false;
 	}
-	cout << "\nafter\n" << endl;
 
 	vector<double> reproj_error;
 	for (int i = 0; i < tri_pts.size(); ++i) {
@@ -712,5 +704,44 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	}
 	cout << "add_to_cloud size: " << countNonZero(add_to_cloud) << endl;
 	return true;
+}
+
+void findFeatures(vector<Mat>& images, vector<vector<KeyPoint>>& keypoints, 
+	vector<Mat>& descriptors) {
+
+	int min_hessian = 400;
+	Ptr<Feature2D> surf = SURF::create(min_hessian);
+	for (int i = 0; i < images.size(); ++i) {
+		surf->detect(images[i], keypoints[i]);
+		surf->compute(images[i], keypoints[i], descriptors[i]);
+	}
+}
+
+void matchFeatures(vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
+	vector<Mat>& descriptors, bool show) {
+
+	BFMatcher matcher(NORM_L2, true);
+	for(int i = 0; i < images.size() - 1; ++i) {
+		for (int j = i + 1; j < images.size(); ++j) {
+			if (show) {
+				cout << "matching image " << i << " and image " << j << endl;  
+			}
+			vector<DMatch> ijMatches, jiMatches;
+			matcher.match(descriptors[i], descriptors[j], ijMatches);
+			matches[make_pair(i, j)] = ijMatches;
+			reverseMatches(ijMatches, jiMatches);
+			matches[make_pair(j, i)] = jiMatches;
+		}
+	}
+	if (show) {
+		cout << "matches size: " << matches.size() << endl;
+	}
+}
+
+void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse) {
+	for (int i = 0; i < matches.size(); ++i) {
+		reverse.push_back(matches[i]);
+		swap(reverse.back().queryIdx, reverse.back().trainIdx);
+	}
 }
 //TODO: implement an autocalibration method for the camera intrinsics.

@@ -25,7 +25,8 @@ struct CloudPoint {
 };
 
 //decalre functions:
-void processImages(vector<Mat> &images, char* dirName);
+void processImages(vector<Mat> &images, vector<Mat> &imagesColored, 
+	char* dirName, bool show);
 Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2);
 Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2);
 double TriangulatePoints(const vector<KeyPoint>& keypoint_img1, 
@@ -54,5 +55,10 @@ void useage();
 void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2);
+void findFeatures(vector<Mat>& images, vector<vector<KeyPoint>>& keypoints, 
+	vector<Mat>& descriptors);
+void matchFeatures(vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
+	vector<Mat>& descriptors, bool show);
+void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse);
 
 #endif
