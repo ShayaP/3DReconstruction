@@ -58,139 +58,74 @@ int main(int argc, char** argv) {
 
 	cout << "<================== Matching Features =============>\n" << endl;
 	map<pair<int, int>, vector<DMatch>> matches;
-	matchFeatures(images, matches, descriptors, show);
+	matchFeatures(keypoints, images, matches, descriptors, show);
 
-	//filter the matches
-	cout << "\n<================== Filtering Matches =============>\n" << endl;
-
-	set<int> existing_trainIdx;
-	vector<DMatch> good_matches;
-	vector<KeyPoint> pts1, pts2;
-
-	for (unsigned int i = 0; i < matches.size(); ++i) {
-		if (matches[i].trainIdx <= 0) {
-			matches[i].trainIdx  = matches[i].imgIdx;
-		}
-
-		if (existing_trainIdx.find(matches[i].trainIdx) == existing_trainIdx.end() && 
-			matches[i].trainIdx >= 0 && matches[i].trainIdx < (int)(keypoint_img2.size())) {
-			good_matches.push_back(matches[i]);
-			pts1.push_back(keypoint_img1[matches[i].queryIdx]);
-			pts2.push_back(keypoint_img2[matches[i].trainIdx]);
-			existing_trainIdx.insert(matches[i].trainIdx);
-		}
-	}
-
-	vector<uchar> status;
-	vector<KeyPoint> pts1_good, pts2_good;
-
-	// now we allign the matched points.
-	vector<KeyPoint> pts1_temp, pts2_temp;
-	allignPoints(keypoint_img1, keypoint_img2, good_matches, pts1_temp, pts2_temp);
-	vector<Point2f> points1, points2;
-	for (unsigned int i = 0; i < good_matches.size(); ++i) {
-		points1.push_back(pts1_temp[i].pt);
-		points2.push_back(pts2_temp[i].pt);
-	}
-
-	double min, max;
-	minMaxIdx(points1, &min, &max);
-	Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99, status);
-	vector<DMatch> new_matches;
-	for (unsigned int i = 0; i < status.size(); ++i) {
-		if (status[i]) {
-			pts1_good.push_back(pts1_temp[i]);
-			pts2_good.push_back(pts2_temp[i]);
-
-			new_matches.push_back(good_matches[i]);
-		}
-	}
-	if (show) {
-		cout << "after fund matrix matches: " << new_matches.size() << endl;
-	}
-	good_matches = new_matches;
-	points1.clear();
-	points2.clear();
-	for (unsigned int i = 0; i < good_matches.size(); ++i) {
-		points1.push_back(pts1_temp[i].pt);
-		points2.push_back(pts2_temp[i].pt);
-	}
-
-	//draw the matches found.
-	Mat img_matches;
-	drawMatches(img1, keypoint_img1, img2, keypoint_img2, good_matches, img_matches,
-				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-
-	imwrite("matches.jpg", img_matches);
-	if (show) {
-		cout << "image saved" << endl;
-	}
 	//TODO: find homography inliers between the images and sort them.
 
-	cout << "\n<================== Decomposing E =============>\n" << endl;
-	//find the fundamnetal matrix
-	F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99);
+	// cout << "\n<================== Decomposing E =============>\n" << endl;
+	// //find the fundamnetal matrix
+	// F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99);
 
-	//compute the essential matrix.
-	Mat_<double> E = K.t() * F * K;
-	Mat_<double> R1, R2, t1;
-	Mat u, vt, w;
+	// //compute the essential matrix.
+	// Mat_<double> E = K.t() * F * K;
+	// Mat_<double> R1, R2, t1;
+	// Mat u, vt, w;
 
-	//decompose the essential matrix
-	DecomposeEssentialMat(E, R1, R2, t1);
+	// //decompose the essential matrix
+	// DecomposeEssentialMat(E, R1, R2, t1);
 
-	//check if the decomposition was successful.
-	if (determinant(R1) + 1.0 < 1e-09) {
-		E = -E;
-		DecomposeEssentialMat(E, R1, R2, t1);
-	}
-	if (!checkRotationMat(R1)) {
-		cout << "Rotation Matrix is not correct" << endl;
-		return -1;
-	}
-	if (determinant(E) > 1e-05) {
-		cout << "Essential Matrix determinant must be 0, but was: " << endl;
-		cout << determinant(E) << endl;
-		return -1;
-	}
-	cout << "decomposition was successful" << endl;
+	// //check if the decomposition was successful.
+	// if (determinant(R1) + 1.0 < 1e-09) {
+	// 	E = -E;
+	// 	DecomposeEssentialMat(E, R1, R2, t1);
+	// }
+	// if (!checkRotationMat(R1)) {
+	// 	cout << "Rotation Matrix is not correct" << endl;
+	// 	return -1;
+	// }
+	// if (determinant(E) > 1e-05) {
+	// 	cout << "Essential Matrix determinant must be 0, but was: " << endl;
+	// 	cout << determinant(E) << endl;
+	// 	return -1;
+	// }
+	// cout << "decomposition was successful" << endl;
 
-	//now we find our camera matricies P and P1.
-	//we assume that P = [I|0]
-	cout << "\n<================== Searching for P2 =============>\n" << endl;
-	Matx34d P1(1, 0, 0, 0,
-		0, 1, 0, 0, 
-		0, 0, 1, 0);
-	Matx34d P2;
-	//now test to see which of the 4 P2s are good.
-	bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, pts1_good, 
-		pts2_good, R1 , R2, t1, show);
-	if (!foundCameraMat) {
-		cout << "p2 was not found successfully" << endl;
-		return -1;
-	} else {
-		cout << "p2 found successfully" << endl;
-	}
+	// //now we find our camera matricies P and P1.
+	// //we assume that P = [I|0]
+	// cout << "\n<================== Searching for P2 =============>\n" << endl;
+	// Matx34d P1(1, 0, 0, 0,
+	// 	0, 1, 0, 0, 
+	// 	0, 0, 1, 0);
+	// Matx34d P2;
+	// //now test to see which of the 4 P2s are good.
+	// bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, pts1_good, 
+	// 	pts2_good, R1 , R2, t1, show);
+	// if (!foundCameraMat) {
+	// 	cout << "p2 was not found successfully" << endl;
+	// 	return -1;
+	// } else {
+	// 	cout << "p2 found successfully" << endl;
+	// }
 
-	//get the baseline triangulation:
-	vector<CloudPoint> tri_pts;
-	vector<int> add_to_cloud;
-	vector<KeyPoint> correspondingImg1pts;
-	vector<CloudPoint> global_pcloud;
-	cout << "\n<================== Triangulating The Points =============>\n" << endl;
-	bool foundTriangulation = triangulateBetweenViews(P1, P2, tri_pts, good_matches, pts1_good, pts2_good,
-		K, K.inv(), distanceCoeffs, correspondingImg1pts, add_to_cloud, show,
-		global_pcloud);
+	// //get the baseline triangulation:
+	// vector<CloudPoint> tri_pts;
+	// vector<int> add_to_cloud;
+	// vector<KeyPoint> correspondingImg1pts;
+	// vector<CloudPoint> global_pcloud;
+	// cout << "\n<================== Triangulating The Points =============>\n" << endl;
+	// bool foundTriangulation = triangulateBetweenViews(P1, P2, tri_pts, good_matches, pts1_good, pts2_good,
+	// 	K, K.inv(), distanceCoeffs, correspondingImg1pts, add_to_cloud, show,
+	// 	global_pcloud);
 
-	if (!foundTriangulation || countNonZero(add_to_cloud) < 10) {
-		cout << "triangulation on the views failed" << endl;
-	} else {
-		for (int i = 0; i < add_to_cloud.size(); ++i) {
-			if (add_to_cloud[i] == 1) {
-				global_pcloud.push_back(tri_pts[i]);
-			}
-		}
-	}
+	// if (!foundTriangulation || countNonZero(add_to_cloud) < 10) {
+	// 	cout << "triangulation on the views failed" << endl;
+	// } else {
+	// 	for (int i = 0; i < add_to_cloud.size(); ++i) {
+	// 		if (add_to_cloud[i] == 1) {
+	// 			global_pcloud.push_back(tri_pts[i]);
+	// 		}
+	// 	}
+	// }
 	// //write the points to a file.
 	// ofstream myfile;
 	// myfile.open("points.txt");
@@ -717,8 +652,8 @@ void findFeatures(vector<Mat>& images, vector<vector<KeyPoint>>& keypoints,
 	}
 }
 
-void matchFeatures(vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
-	vector<Mat>& descriptors, bool show) {
+void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<Mat>& images, 
+	map<pair<int, int>, vector<DMatch>>& matches, vector<Mat>& descriptors, bool show) {
 
 	BFMatcher matcher(NORM_L2, true);
 	for(int i = 0; i < images.size() - 1; ++i) {
@@ -728,6 +663,8 @@ void matchFeatures(vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& mat
 			}
 			vector<DMatch> ijMatches, jiMatches;
 			matcher.match(descriptors[i], descriptors[j], ijMatches);
+			filterMatches(keypoints[i], keypoints[j], ijMatches, images[i], images[j],
+				i, j);
 			matches[make_pair(i, j)] = ijMatches;
 			reverseMatches(ijMatches, jiMatches);
 			matches[make_pair(j, i)] = jiMatches;
@@ -736,6 +673,7 @@ void matchFeatures(vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& mat
 	if (show) {
 		cout << "matches size: " << matches.size() << endl;
 	}
+	sortMatchesFromHomography(matches, keypoints, show);
 }
 
 void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse) {
@@ -743,5 +681,110 @@ void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse) {
 		reverse.push_back(matches[i]);
 		swap(reverse.back().queryIdx, reverse.back().trainIdx);
 	}
+}
+
+void filterMatches(vector<KeyPoint>& keypts1, vector<KeyPoint>& keypts2, 
+	vector<DMatch>& ijMatches, Mat& img1, Mat& img2, int i, int j) {
+
+	set<int> existing_trainIdx;
+	vector<DMatch> good_matches;
+	vector<KeyPoint> pts1, pts2;
+
+	//make sure there are duplicate matches.
+	for (unsigned int k = 0; k < ijMatches.size(); ++k) {
+		if (ijMatches[k].trainIdx <= 0) {
+			ijMatches[k].trainIdx  = ijMatches[k].imgIdx;
+		}
+
+		if (existing_trainIdx.find(ijMatches[k].trainIdx) == existing_trainIdx.end() && 
+			ijMatches[k].trainIdx >= 0 && ijMatches[k].trainIdx < (int)(keypts2.size())) {
+			good_matches.push_back(ijMatches[k]);
+			pts1.push_back(keypts1[ijMatches[k].queryIdx]);
+			pts2.push_back(keypts2[ijMatches[k].trainIdx]);
+			existing_trainIdx.insert(ijMatches[k].trainIdx);
+		}
+	}
+
+	//prune the matches based on F inliers
+	vector<uchar> status;
+	vector<KeyPoint> pts1_good, pts2_good;
+	vector<KeyPoint> pts1_temp, pts2_temp;
+	allignPoints(keypts1, keypts2, good_matches, pts1_temp, pts2_temp);
+	vector<Point2f> points1, points2;
+	for (unsigned int i = 0; i < good_matches.size(); ++i) {
+		points1.push_back(pts1_temp[i].pt);
+		points2.push_back(pts2_temp[i].pt);
+	}
+
+	double min, max;
+	minMaxIdx(points1, &min, &max);
+	Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99, status);
+	vector<DMatch> new_matches;
+	for (unsigned int i = 0; i < status.size(); ++i) {
+		if (status[i]) {
+			pts1_good.push_back(pts1_temp[i]);
+			pts2_good.push_back(pts2_temp[i]);
+
+			new_matches.push_back(good_matches[i]);
+		}
+	}
+	good_matches = new_matches;
+	ijMatches = new_matches;
+	cout << "after f prunes: " << ijMatches.size() << endl;
+	points1.clear();
+	points2.clear();
+	for (unsigned int i = 0; i < good_matches.size(); ++i) {
+		points1.push_back(pts1_temp[i].pt);
+		points2.push_back(pts2_temp[i].pt);
+	}
+
+	//draw the matches found.
+	Mat img_matches;
+	drawMatches(img1, keypts1, img2, keypts2, good_matches, img_matches,
+				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+
+	string name = "matches" + to_string(i) + to_string(j) + ".jpg";
+	imwrite(name, img_matches);
+	cout << "image saved" << endl;
+}
+
+void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
+	vector<vector<KeyPoint>>& keypoints, bool show) {
+
+	list<pair<int,pair<int,int>>> percent_matches;
+	for (auto it = matches.begin(); it != matches.end(); ++it) {
+		if ((*it).second.size() < 100) {
+			percent_matches.push_back(make_pair(100, (*it).first));
+		} else {
+			vector<KeyPoint> keypts1, keypts2;
+			vector<Point2f> pts1, pts2;
+			int idx1 = (*it).first.first;
+			int idx2 = (*it).first.second;
+
+			allignPoints(keypoints[idx1], keypoints[idx2], matches[make_pair(idx1, idx2)],
+				keypts1, keypts2);
+			for (int i = 0; i < keypts1.size(); ++i) {
+				pts1.push_back(keypts1[i].pt);
+				pts2.push_back(keypts2[i].pt);
+			}
+
+			double min,max;
+			minMaxIdx(pts1, &min, &max);
+			vector<uchar> status;
+			Mat H = findHomography(pts1, pts2, status, CV_RANSAC, 0.004 * max);
+			int inliers = countNonZero(status);
+			int percent = (int)(((double)inliers) / ((double)(*it).second.size()) * 100);
+			percent_matches.push_back(make_pair((int)percent, (*it).first));
+			percent_matches.sort(sortFromPercentage);
+			if (show) {
+				cout << "percentage inliers for: " << idx1 << ", " << idx2 << ": " 
+				<< percent <<  endl;
+			}
+		}
+	}
+}
+
+bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b) {
+	return a.first < b.first;
 }
 //TODO: implement an autocalibration method for the camera intrinsics.

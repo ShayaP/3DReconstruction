@@ -57,8 +57,12 @@ void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpt
 	vector<KeyPoint>& new_pts2);
 void findFeatures(vector<Mat>& images, vector<vector<KeyPoint>>& keypoints, 
 	vector<Mat>& descriptors);
-void matchFeatures(vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
+void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
 	vector<Mat>& descriptors, bool show);
 void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse);
-
+void filterMatches(vector<KeyPoint>& keypts1, vector<KeyPoint>& keypts2, 
+	vector<DMatch>& ijMatches, Mat& img1, Mat& img2, int i, int j);
+void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
+	vector<vector<KeyPoint>>& keypoints, bool show);
+bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b);
 #endif
