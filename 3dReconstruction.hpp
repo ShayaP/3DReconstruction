@@ -43,7 +43,7 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	vector<KeyPoint>& correspImg1Pt, vector<int>& add_to_cloud,
 	bool show, vector<CloudPoint>& global_pcloud);
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
-	Mat_<double>& t1); 
+	Mat_<double>& t1, bool show); 
 bool checkRotationMat(Mat_<double>& R1);
 bool testTriangulation(const vector<CloudPoint>& pointCloud, const Matx34d& P,
 	vector<uchar>& status, bool show);
@@ -57,12 +57,21 @@ void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpt
 	vector<KeyPoint>& new_pts2);
 void findFeatures(vector<Mat>& images, vector<vector<KeyPoint>>& keypoints, 
 	vector<Mat>& descriptors);
-void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
+void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<vector<KeyPoint>>& keypoints_good,
+	vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
 	vector<Mat>& descriptors, bool show);
 void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse);
 void filterMatches(vector<KeyPoint>& keypts1, vector<KeyPoint>& keypts2, 
-	vector<DMatch>& ijMatches, Mat& img1, Mat& img2, int i, int j);
+	vector<DMatch>& ijMatches, vector<KeyPoint>& keypts1_good,
+	vector<KeyPoint>& keypts2_good, Mat& img1, Mat& img2, int i, int j, bool show);
 void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
-	vector<vector<KeyPoint>>& keypoints, bool show);
+	vector<vector<KeyPoint>>& keypoints, list<pair<int,pair<int,int>>>& percent_matches,
+	bool show);
 bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b);
+void pruneMatchesBasedOnF(vector<vector<KeyPoint>>& keypoints, 
+	vector<vector<KeyPoint>>& keypoints_good, vector<Mat>& images,
+	map<pair<int, int>, vector<DMatch>>& matches, bool show);
+Mat findF(const vector<KeyPoint>& keypts1, const vector<KeyPoint>& keypts2, 
+	vector<KeyPoint>& keypts1_good, vector<KeyPoint>& keypts2_good,
+	vector<DMatch>& matches, bool show);
 #endif

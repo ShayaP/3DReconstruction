@@ -8,7 +8,7 @@ using namespace cv::detail;
 
 int main(int argc, char** argv) {
 
-	//vector used to hold the images
+	//vector used to hold the images and data
 	vector<Mat> images;
 	vector<Mat> imagesColored;
 	bool show;
@@ -44,68 +44,88 @@ int main(int argc, char** argv) {
 
 	cout << "\n<================== Finding Images =============>\n" << endl;
 	processImages(images, imagesColored, argv[1], show);
-
 	vector<Mat> descriptors;
 	descriptors.resize(images.size(), Mat());
 	vector<vector<KeyPoint>> keypoints;
 	keypoints.resize(images.size(), vector<KeyPoint>());
-	cout << "<================== Detecting Features =============>\n" << endl;
+	vector<vector<KeyPoint>> keypoints_good;
+	keypoints_good.resize(images.size(), vector<KeyPoint>());
+
+	cout << "\n<================== Detecting Features =============>\n" << endl;
 
 	findFeatures(images, keypoints, descriptors);
 	cout << "descriptors size: " << descriptors.size() << endl;
 	cout << "keypoints size " << keypoints.size() << endl;
 	cout << "---done detecting and computing features" << endl;
 
-	cout << "<================== Matching Features =============>\n" << endl;
+	cout << "\n<================== Matching Features =============>\n" << endl;
 	map<pair<int, int>, vector<DMatch>> matches;
-	matchFeatures(keypoints, images, matches, descriptors, show);
+	matchFeatures(keypoints, keypoints_good, images, matches, descriptors, show);
+	list<pair<int,pair<int,int>>> percent_matches;
+	pruneMatchesBasedOnF(keypoints, keypoints_good, images, matches, show);
+	sortMatchesFromHomography(matches, keypoints, percent_matches, show);
 
-	//TODO: find homography inliers between the images and sort them.
+	for (auto it = percent_matches.begin(); it != percent_matches.end(); ++it) {
+		int idx1 = (*it).second.first;
+		int idx2 = (*it).second.second;
+		Mat F = findF(keypoints[idx1], keypoints[idx2], keypoints_good[idx1], 
+			keypoints_good[idx2], matches[make_pair(idx1, idx2)], false);
+		Mat_<double> E = K.t() * F * K;
+		if (determinant(E) > 1e-06) {
+			if (show) {
+				cout << "Essential Matrix determinant must be 0, but was: " << endl;
+				cout << determinant(E) << endl;
+			}
+			continue;
+		}
+		Mat_<double> R1, R2, t1;
+		Mat u, vt, w;
 
-	// cout << "\n<================== Decomposing E =============>\n" << endl;
-	// //find the fundamnetal matrix
-	// F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99);
+		//decompose the essential matrix
+		bool good_decomp = DecomposeEssentialMat(E, R1, R2, t1, show);
 
-	// //compute the essential matrix.
-	// Mat_<double> E = K.t() * F * K;
-	// Mat_<double> R1, R2, t1;
-	// Mat u, vt, w;
+		if (good_decomp) {
+			//check if the decomposition was successful.
+			if (determinant(R1) + 1.0 < 1e-09) {
+				E = -E;
+				DecomposeEssentialMat(E, R1, R2, t1, show);
+			}
+			if (!checkRotationMat(R1)) {
+				if (show) {
+					cout << "Rotation Matrix is not correct" << endl;	
+				}
+				continue;
+			}
+			if (show) {
+				cout << "decomposition was successful for pair: " << idx1 << ", " << idx2 << endl;
+				cout << endl;	
+			}
+			//now we find our camera matricies P and P1.
+			//we assume that P = [I|0]
+			cout << "\n<================== Searching for P2 =============>\n" << endl;
+			Matx34d P1(1, 0, 0, 0,
+				0, 1, 0, 0, 
+				0, 0, 1, 0);
+			Matx34d P2;
+			bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, 
+				keypoints_good[idx1], keypoints_good[idx2], R1 , R2, t1, show);
+			if (!foundCameraMat) {
+				cout << "p2 was not found successfully for pair: " << idx1 << ", " << idx2 << endl;
+				continue;
+			} else {
+				cout << "p2 found successfully for pair: " << idx1 << ", " << idx2 << endl;
+			}
 
-	// //decompose the essential matrix
-	// DecomposeEssentialMat(E, R1, R2, t1);
+		} else {
+			if (show) {
+				cout << "failed decomposition for pair: " << idx1 << ", " << idx2 << endl;
+				cout << endl; 		
+			}
+			continue;
+		}
+	}
 
-	// //check if the decomposition was successful.
-	// if (determinant(R1) + 1.0 < 1e-09) {
-	// 	E = -E;
-	// 	DecomposeEssentialMat(E, R1, R2, t1);
-	// }
-	// if (!checkRotationMat(R1)) {
-	// 	cout << "Rotation Matrix is not correct" << endl;
-	// 	return -1;
-	// }
-	// if (determinant(E) > 1e-05) {
-	// 	cout << "Essential Matrix determinant must be 0, but was: " << endl;
-	// 	cout << determinant(E) << endl;
-	// 	return -1;
-	// }
-	// cout << "decomposition was successful" << endl;
-
-	// //now we find our camera matricies P and P1.
-	// //we assume that P = [I|0]
-	// cout << "\n<================== Searching for P2 =============>\n" << endl;
-	// Matx34d P1(1, 0, 0, 0,
-	// 	0, 1, 0, 0, 
-	// 	0, 0, 1, 0);
-	// Matx34d P2;
-	// //now test to see which of the 4 P2s are good.
-	// bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, pts1_good, 
-	// 	pts2_good, R1 , R2, t1, show);
-	// if (!foundCameraMat) {
-	// 	cout << "p2 was not found successfully" << endl;
-	// 	return -1;
-	// } else {
-	// 	cout << "p2 found successfully" << endl;
-	// }
+	//TODO: complete this part later!!
 
 	// //get the baseline triangulation:
 	// vector<CloudPoint> tri_pts;
@@ -126,6 +146,8 @@ int main(int argc, char** argv) {
 	// 		}
 	// 	}
 	// }
+
+
 	// //write the points to a file.
 	// ofstream myfile;
 	// myfile.open("points.txt");
@@ -143,7 +165,7 @@ int main(int argc, char** argv) {
 * Returns: Rotation Matricies (R1, R2) and Translation Matricies (t1, t2).
 */
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
-	Mat_<double>& t1) {
+	Mat_<double>& t1, bool show) {
 	SVD decomp = SVD(E, SVD::MODIFY_A);
 
 	//decomposition of E.
@@ -157,10 +179,15 @@ bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 		svr = 1.0 / svr;
 	}
 	if (svr < 0.7) {
-		cout << "singular values are too far apart" << endl;
+		if (show) {
+			cout << "singular values are too far apart" << endl;
+		}
 		return false;
-	} else if (w.at<double>(2) > 1e-09) {
-		cout << "final singluar value should be 0" << endl;
+	} else if (w.at<double>(2) > 1e-06) {
+		if (show) {
+			cout << "final singluar value should be 0" << endl;
+			cout << w.at<double>(2) << endl;
+		}
 		return -1;
 	}
 
@@ -652,19 +679,20 @@ void findFeatures(vector<Mat>& images, vector<vector<KeyPoint>>& keypoints,
 	}
 }
 
-void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<Mat>& images, 
-	map<pair<int, int>, vector<DMatch>>& matches, vector<Mat>& descriptors, bool show) {
+void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<vector<KeyPoint>>& keypoints_good, 
+	vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
+	vector<Mat>& descriptors, bool show) {
 
 	BFMatcher matcher(NORM_L2, true);
 	for(int i = 0; i < images.size() - 1; ++i) {
 		for (int j = i + 1; j < images.size(); ++j) {
 			if (show) {
-				cout << "matching image " << i << " and image " << j << endl;  
+				cout << "\nmatching image " << i << " and image " << j << endl;  
 			}
 			vector<DMatch> ijMatches, jiMatches;
 			matcher.match(descriptors[i], descriptors[j], ijMatches);
-			filterMatches(keypoints[i], keypoints[j], ijMatches, images[i], images[j],
-				i, j);
+			filterMatches(keypoints[i], keypoints[j], ijMatches, keypoints_good[i],
+				keypoints_good[j], images[i], images[j], i, j, show);
 			matches[make_pair(i, j)] = ijMatches;
 			reverseMatches(ijMatches, jiMatches);
 			matches[make_pair(j, i)] = jiMatches;
@@ -673,7 +701,6 @@ void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<Mat>& images,
 	if (show) {
 		cout << "matches size: " << matches.size() << endl;
 	}
-	sortMatchesFromHomography(matches, keypoints, show);
 }
 
 void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse) {
@@ -684,11 +711,11 @@ void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse) {
 }
 
 void filterMatches(vector<KeyPoint>& keypts1, vector<KeyPoint>& keypts2, 
-	vector<DMatch>& ijMatches, Mat& img1, Mat& img2, int i, int j) {
+	vector<DMatch>& ijMatches, vector<KeyPoint>& keypts1_good,
+	vector<KeyPoint>& keypts2_good, Mat& img1, Mat& img2, int i, int j, bool show) {
 
 	set<int> existing_trainIdx;
 	vector<DMatch> good_matches;
-	vector<KeyPoint> pts1, pts2;
 
 	//make sure there are duplicate matches.
 	for (unsigned int k = 0; k < ijMatches.size(); ++k) {
@@ -699,44 +726,11 @@ void filterMatches(vector<KeyPoint>& keypts1, vector<KeyPoint>& keypts2,
 		if (existing_trainIdx.find(ijMatches[k].trainIdx) == existing_trainIdx.end() && 
 			ijMatches[k].trainIdx >= 0 && ijMatches[k].trainIdx < (int)(keypts2.size())) {
 			good_matches.push_back(ijMatches[k]);
-			pts1.push_back(keypts1[ijMatches[k].queryIdx]);
-			pts2.push_back(keypts2[ijMatches[k].trainIdx]);
 			existing_trainIdx.insert(ijMatches[k].trainIdx);
 		}
 	}
-
-	//prune the matches based on F inliers
-	vector<uchar> status;
-	vector<KeyPoint> pts1_good, pts2_good;
-	vector<KeyPoint> pts1_temp, pts2_temp;
-	allignPoints(keypts1, keypts2, good_matches, pts1_temp, pts2_temp);
-	vector<Point2f> points1, points2;
-	for (unsigned int i = 0; i < good_matches.size(); ++i) {
-		points1.push_back(pts1_temp[i].pt);
-		points2.push_back(pts2_temp[i].pt);
-	}
-
-	double min, max;
-	minMaxIdx(points1, &min, &max);
-	Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99, status);
-	vector<DMatch> new_matches;
-	for (unsigned int i = 0; i < status.size(); ++i) {
-		if (status[i]) {
-			pts1_good.push_back(pts1_temp[i]);
-			pts2_good.push_back(pts2_temp[i]);
-
-			new_matches.push_back(good_matches[i]);
-		}
-	}
-	good_matches = new_matches;
-	ijMatches = new_matches;
-	cout << "after f prunes: " << ijMatches.size() << endl;
-	points1.clear();
-	points2.clear();
-	for (unsigned int i = 0; i < good_matches.size(); ++i) {
-		points1.push_back(pts1_temp[i].pt);
-		points2.push_back(pts2_temp[i].pt);
-	}
+	vector<KeyPoint> imgpts1_good, imgpts2_good;
+	findF(keypts1, keypts2, imgpts1_good, imgpts2_good, good_matches, show);
 
 	//draw the matches found.
 	Mat img_matches;
@@ -749,9 +743,9 @@ void filterMatches(vector<KeyPoint>& keypts1, vector<KeyPoint>& keypts2,
 }
 
 void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
-	vector<vector<KeyPoint>>& keypoints, bool show) {
+	vector<vector<KeyPoint>>& keypoints, list<pair<int,pair<int,int>>>& percent_matches,
+	bool show) {
 
-	list<pair<int,pair<int,int>>> percent_matches;
 	for (auto it = matches.begin(); it != matches.end(); ++it) {
 		if ((*it).second.size() < 100) {
 			percent_matches.push_back(make_pair(100, (*it).first));
@@ -775,16 +769,69 @@ void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
 			int inliers = countNonZero(status);
 			int percent = (int)(((double)inliers) / ((double)(*it).second.size()) * 100);
 			percent_matches.push_back(make_pair((int)percent, (*it).first));
-			percent_matches.sort(sortFromPercentage);
 			if (show) {
 				cout << "percentage inliers for: " << idx1 << ", " << idx2 << ": " 
 				<< percent <<  endl;
 			}
 		}
 	}
+	percent_matches.sort(sortFromPercentage);
 }
 
 bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b) {
 	return a.first < b.first;
+}
+
+Mat findF(const vector<KeyPoint>& keypts1, const vector<KeyPoint>& keypts2, 
+	vector<KeyPoint>& keypts1_good, vector<KeyPoint>& keypts2_good,
+	vector<DMatch>& matches, bool show) {
+	//prune the matches based on F inliers
+	keypts1_good.clear();
+	keypts2_good.clear();
+	vector<uchar> status;
+	vector<KeyPoint> pts1_temp, pts2_temp;
+	allignPoints(keypts1, keypts2, matches, pts1_temp, pts2_temp);
+	vector<Point2f> points1, points2;
+	for (unsigned int i = 0; i < pts1_temp.size(); ++i) {
+		points1.push_back(pts1_temp[i].pt);
+		points2.push_back(pts2_temp[i].pt);
+	}
+
+	double min, max;
+	minMaxIdx(points1, &min, &max);
+	Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99, status);
+	vector<DMatch> new_matches;
+	for (unsigned int i = 0; i < status.size(); ++i) {
+		if (status[i]) {
+			keypts1_good.push_back(pts1_temp[i]);
+			keypts2_good.push_back(pts2_temp[i]);
+
+			new_matches.push_back(matches[i]);
+		}
+	}
+	if (show) {
+		cout << "new matches size: " << new_matches.size() << endl;
+	}
+	matches = new_matches;
+	return F;
+}
+
+void pruneMatchesBasedOnF(vector<vector<KeyPoint>>& keypoints, 
+	vector<vector<KeyPoint>>& keypoints_good, vector<Mat>& images,
+	map<pair<int, int>, vector<DMatch>>& matches, bool show) {
+
+	cout << "\n<================== Pruning Matches =============>\n" << endl;
+	for (int i = 0; i < images.size() - 1; ++i) {
+		for (int j = i + 1; j < images.size(); ++j) {
+			if (show) {
+				cout << "\npruning " << i << ", " << j << endl;
+			}
+			findF(keypoints[i], keypoints[j], keypoints_good[i], keypoints_good[j],
+				matches[make_pair(i, j)], show);
+			vector<DMatch> temp;
+			reverseMatches(matches[make_pair(i, j)], temp);
+			matches[make_pair(j, i)] = temp;
+		}
+	}
 }
 //TODO: implement an autocalibration method for the camera intrinsics.
