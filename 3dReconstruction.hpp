@@ -7,6 +7,13 @@
 #include <string>
 #include <map>
 #include <fstream>
+#include <stdlib.h>
+
+#include <pcl/io/pcd_io.h>
+#include <pcl/visualization/cloud_viewer.h>
+#include <boost/thread/thread.hpp>
+#include <pcl/common/common_headers.h>
+#include <pcl/io/pcd_io.h>
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/core.hpp>
@@ -14,9 +21,10 @@
 #include "opencv2/xfeatures2d.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/stitching.hpp"
-#include <opencv2/imgproc/imgproc.hpp>
 
 #include "CameraCalib.hpp"
+
+vector<Point3d> myCloud;
 
 struct CloudPoint {
 	Point3d pt;
@@ -37,11 +45,11 @@ double TriangulatePoints(const vector<KeyPoint>& keypoint_img1,
 	vector<CloudPoint>& pointCloud,
 	vector<KeyPoint>& correspondingImg1Pt, bool show);
 bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2, 
-	vector<CloudPoint>& tri_pts, vector<DMatch>& good_matches,
+	vector<CloudPoint>& tri_pts, map<pair<int, int>, vector<DMatch>> all_matches,
 	const vector<KeyPoint>& pts1_good, const vector<KeyPoint>& pts2_good,
-	const Mat& K, const Mat& Kinv, const Mat& distanceCoeffs, 
+	const Mat& K, const Mat& distanceCoeffs, 
 	vector<KeyPoint>& correspImg1Pt, vector<int>& add_to_cloud,
-	bool show, vector<CloudPoint>& global_pcloud, int image_size);
+	bool show, vector<CloudPoint>& global_pcloud, int image_size, int idx1, int idx2);
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	Mat_<double>& t1, bool show); 
 bool checkRotationMat(Mat_<double>& R1);
@@ -55,29 +63,6 @@ void useage();
 void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2);
-<<<<<<< Updated upstream
-void findFeatures(vector<Mat>& images, vector<vector<KeyPoint>>& keypoints, 
-	vector<Mat>& descriptors);
-void matchFeatures(vector<vector<KeyPoint>>& keypoints, vector<vector<KeyPoint>>& keypoints_good,
-	vector<Mat>& images, map<pair<int, int>, vector<DMatch>>& matches, 
-	vector<Mat>& descriptors, bool show);
-void reverseMatches(const vector<DMatch>& matches, vector<DMatch>& reverse);
-void filterMatches(vector<KeyPoint>& keypts1, vector<KeyPoint>& keypts2, 
-	vector<DMatch>& ijMatches, vector<KeyPoint>& keypts1_good,
-	vector<KeyPoint>& keypts2_good, Mat& img1, Mat& img2, int i, int j, bool show);
-void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
-	vector<vector<KeyPoint>>& keypoints, list<pair<int,pair<int,int>>>& percent_matches,
-	bool show);
-bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b);
-void pruneMatchesBasedOnF(vector<vector<KeyPoint>>& keypoints, 
-	vector<vector<KeyPoint>>& keypoints_good, vector<Mat>& images,
-	map<pair<int, int>, vector<DMatch>>& matches, bool show);
-Mat findF(const vector<KeyPoint>& keypts1, const vector<KeyPoint>& keypts2, 
-	vector<KeyPoint>& keypts1_good, vector<KeyPoint>& keypts2_good,
-	vector<DMatch>& matches, bool show);
-=======
-boost::shared_ptr<pcl::visualization::PCLVisualizer> rgbVis (pcl::PointCloud<pcl::PointXYZRGB>::ConstPtr cloud);
-boost::shared_ptr<pcl::visualization::PCLVisualizer> grayVis (const pcl::PointCloud<pcl::PointXYZ>::ConstPtr cloud);
 void showCloudNoColor(const pcl::PointCloud<pcl::PointXYZ>::Ptr& finalPC);
 void getRGBCloudPoint(const vector<CloudPoint>& global_pcloud, vector<Vec3b>& out,
 	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
@@ -87,9 +72,14 @@ void populatePC(vector<Point3d>& global_pcloud_3d, vector<Vec3b>& RGBPoints,
 void showCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& finalPC);
 void populatePCNoColor(vector<Point3d>& global_pcloud_3d, 
 	const pcl::PointCloud<pcl::PointXYZ>::Ptr& finalPC);
-bool computeSFM(Mat& img1, Mat& img2, Mat& K, Mat& desc1, Mat& desc2, 
-	vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, vector<Point3d>& cloud, 
-	Mat& distanceCoeffs, bool show, int image_size);
-
->>>>>>> Stashed changes
+bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2, 
+	vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, vector<DMatch>& matches, 
+	vector<KeyPoint>& good_keypts, bool show);
+bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
+	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
+	vector<KeyPoint>& kpts_good, vector<CloudPoint>& global_pcloud,
+	int idx1, int idx2, int image_size, bool show);
+void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
+	vector<Mat>& imagesColored, vector<vector<KeyPoint>>& all_keypoints,
+	int image_size);
 #endif
