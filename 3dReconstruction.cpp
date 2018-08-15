@@ -82,6 +82,7 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+	cout << "\n...after sfm found: " << global_pcloud.size() << " points.\n" << endl;
 	//find the RGB colors for the points that were found.
 	vector<Vec3b> RGBCloud;
 	getPointRGB(global_pcloud, RGBCloud, imagesColored, all_keypoints, images.size());
@@ -90,7 +91,15 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	//convert the found cloudpoints into points and colors and write them to a file.
+	//convert the found cloudpoints into points and colors and display them using PCL.
+	displayCloud(global_pcloud, RGBCloud, all_points);
+
+	return 0;
+}
+
+//this function displays the point cloud.
+void displayCloud(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud, 
+	vector<Point3d>& all_points) {
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPtr(new pcl::PointCloud<pcl::PointXYZRGB>);
 	for (int i = 0; i < global_pcloud.size(); ++i) {
 		Vec3b rgbv(255, 255, 255);
@@ -98,6 +107,8 @@ int main(int argc, char** argv) {
 			rgbv = RGBCloud[i];
 		}
 		Point3d p = global_pcloud[i].pt;
+
+		// check if any of the points are nan.
 		if (isnan(p.x) || isnan(p.y) || isnan(p.z)) {
 			continue;
 		}
@@ -111,18 +122,17 @@ int main(int argc, char** argv) {
 		pt.rgb = *reinterpret_cast<float*>(&rgb);
 		cloudPtr->push_back(pt);
 	}
-	// cloud.width = cloud.points.size();
-	// cloud.height = 1;
-	//pcl::io::savePCDFileASCII("points.pcd", cloud);
 	pcl::visualization::CloudViewer viewer("SFM");
 	viewer.showCloud(cloudPtr);
 	while(!viewer.wasStopped()) {
 
 	}
-
-	return 0;
 }
 
+/**
+* this function computes the RGB values for the triangulated points.
+* returns a vector of RGB values.
+*/
 void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 	vector<Mat>& imagesColored, vector<vector<KeyPoint>>& all_keypoints,
 	int image_size) {
@@ -145,6 +155,10 @@ void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 	}
 }
 
+/**
+* this function computes SFM from a series of images, matches and camera parameters.
+* returns a point cloud that contains 3d points.
+*/
 bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
 	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
 	vector<KeyPoint>& kpts_good, vector<CloudPoint>& global_pcloud,
@@ -240,6 +254,10 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 	}
 }
 
+/**
+* this function computes the keypoints between 2 images, matches them and filters those matches.
+* returns the filtered matches and their corresponding "good" keypoints.
+*/
 bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2, 
 	vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, vector<DMatch>& matches, 
 	vector<KeyPoint>& good_keypts, bool show) {
@@ -275,7 +293,7 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 	}
 
 	//filter the matches
-	cout << "\n<================== filtering matches =============>\n" << endl;
+	cout << "----- filtering matches" << endl;
 
 	set<int> existing_trainIdx;
 	vector<DMatch> good_matches;
@@ -315,11 +333,11 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 
 			new_matches.push_back(good_matches[i]);
 		}
-	}
-	cout << "match pts1_good size: " << pts1_good.size() << endl;
-	cout << "match pts2_good size: " << pts2_good.size() << endl;
+	};
 	good_keypts = pts1_good;
 	if (show) {
+		cout << "match pts1_good size: " << pts1_good.size() << endl;
+		cout << "match pts2_good size: " << pts2_good.size() << endl;
 		cout << "after fund matrix matches: " << new_matches.size() << endl;
 	}
 	good_matches = new_matches;
@@ -755,6 +773,12 @@ bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoe
 	return true;
 }
 
+/**
+* this function alligns keypoints between two images.
+* parameters: takes in the keypoints for the first and second image.
+* 	a vector of matches.
+* output: 2 vectors of alligned keypoints between the images.
+*/
 void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2) {
@@ -766,6 +790,12 @@ void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpt
 	}
 }
 
+
+/**
+* this function triangulates points between two images.
+* parameters: takes in the 2 camera matrices, thier keypoints and their matches.
+* output: a vector of points to add to the cloud.
+*/
 bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2, 
 	vector<CloudPoint>& tri_pts, map<pair<int, int>, vector<DMatch>> all_matches,
 	const vector<KeyPoint>& pts1_good, const vector<KeyPoint>& pts2_good,
@@ -773,7 +803,6 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	vector<KeyPoint>& correspImg1Pt, vector<int>& add_to_cloud,
 	bool show, vector<CloudPoint>& global_pcloud, int image_size, int idx1, int idx2) {
 
-	//allignPoints(pts1_good, pts2_good, good_matches, pts1_temp, pts2_temp);
 	Mat Kinv = K.inv();
 	vector<DMatch> good_matches = all_matches[make_pair(idx1, idx2)];
 	double err = TriangulatePoints(pts1_good, pts2_good, K, Kinv, distanceCoeffs,

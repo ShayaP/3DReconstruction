@@ -82,4 +82,6 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 	vector<Mat>& imagesColored, vector<vector<KeyPoint>>& all_keypoints,
 	int image_size);
+void displayCloud(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud, 
+	vector<Point3d>& all_points);
 #endif
