@@ -3,6 +3,7 @@
 using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
+using namespace V3D;
 
 int main(int argc, char** argv) {
 
@@ -10,12 +11,15 @@ int main(int argc, char** argv) {
 	vector<Mat> images;
 	vector<Mat> imagesColored;
 	vector<vector<KeyPoint>> all_keypoints;
-	map<pair<int, int>, vector<KeyPoint>> all_good_keypoints;
 	vector<Point3d> all_points;
 	vector<Mat> all_descriptors;
-	map<pair<int, int>, vector<DMatch>> all_matches;
 	vector<CloudPoint> global_pcloud;
 
+	map<pair<int, int>, Matx34d> all_pmats;
+	map<pair<int, int>, vector<KeyPoint>> all_good_keypoints;
+	map<pair<int, int>, vector<DMatch>> all_matches;
+
+	//boolean for extra debug info.
 	bool show;
 
 	//camera matricies.
@@ -73,7 +77,7 @@ int main(int argc, char** argv) {
 		for (int j = i + 1; j < images.size(); ++j) {
 			bool sfm_res = computeSFM(all_keypoints[i], all_keypoints[j], 
 				all_matches, K, distanceCoeffs, all_good_keypoints[make_pair(i, j)],
-				global_pcloud, i, j, images.size(), show);
+				global_pcloud, all_pmats, i, j, images.size(), show);
 			if (sfm_res) {
 				cout << "successful sfm with image: [" << i << ", " << j << "]" << endl;
 				//cout << "current cloud size: " << all_points.size() << "\n\n" << endl;
@@ -82,6 +86,10 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+	cout << "----printing all_pmats------- " << endl;
+	for (auto it = all_pmats.begin(); it != all_pmats.end(); ++it) {
+		cout << "\n" << it->second << endl;
+	} 
 	cout << "\n...after sfm found: " << global_pcloud.size() << " points.\n" << endl;
 	//find the RGB colors for the points that were found.
 	vector<Vec3b> RGBCloud;
@@ -95,6 +103,24 @@ int main(int argc, char** argv) {
 	displayCloud(global_pcloud, RGBCloud, all_points);
 
 	return 0;
+}
+
+void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& K,
+	const vector<vector<KeyPoint>>& all_keypoints) {
+
+	
+}
+
+int get2DMeasurements(const vector<CloudPoint>& global_pcloud) {
+	int count = 0;
+	for (int i = 0; i < global_pcloud.size(); ++i) {
+		for (int j = 0; j < global_pcloud[i].imgpt_for_img.size(); ++j) {
+			if (global_pcloud[i].imgpt_for_img[j] >= 0) {
+				count++;
+			}	
+		}
+	}
+	return count;
 }
 
 //this function displays the point cloud.
@@ -162,6 +188,7 @@ void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
 	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
 	vector<KeyPoint>& kpts_good, vector<CloudPoint>& global_pcloud,
+	map<pair<int, int>, Matx34d>& all_pmats,
 	int idx1, int idx2, int image_size, bool show) {
 	cout << "\nSFM with images: [" << idx1 << ", " << idx2 << "]" << endl;
 
@@ -229,6 +256,8 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 		cout << "p2 was not found successfully" << endl;
 		return false;
 	} else {
+		//store the camera matrices in the global data structure.
+		all_pmats[make_pair(idx1, idx2)] = P2;
 		cout << "p2 found successfully" << endl;
 
 		//triangulate the points and create point cloud.
@@ -370,7 +399,7 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 */
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	Mat_<double>& t1, bool show) {
-	SVD decomp = SVD(E, SVD::MODIFY_A);
+	cv::SVD decomp = cv::SVD(E, cv::SVD::MODIFY_A);
 
 	//decomposition of E.
 	Mat U = decomp.u;

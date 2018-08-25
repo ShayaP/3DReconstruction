@@ -9,10 +9,15 @@ find_package(OpenCV REQUIRED)
 
 include_directories(${PCL_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories("${PROJECT_SOURCE_DIR}/SSBA-3.0")
+add_subdirectory (SSBA-3.0)
 add_definitions(${PCL_DEFINITIONS})
 list(REMOVE_ITEM PCL_LIBRARIES "vtkproj4")
 link_directories(${PCL_LIBRARY_DIRS})
 link_directories(${OpenCV_LIB_DIR})
 
+set (EXTRA_LIBS ${EXTRA_LIBS} SSBA-3.0)
+
 target_link_libraries (3drecon ${PCL_LIBRARIES})
 target_link_libraries (3drecon ${OpenCV_LIBS})
+target_link_libraries (3drecon ${SSBA-3.0})

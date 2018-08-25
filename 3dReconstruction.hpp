@@ -9,18 +9,27 @@
 #include <fstream>
 #include <stdlib.h>
 
+// include files from PCL to show the cloud
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/cloud_viewer.h>
 #include <boost/thread/thread.hpp>
 #include <pcl/common/common_headers.h>
 #include <pcl/io/pcd_io.h>
 
+// include files from opencv to compute sfm
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/core.hpp>
 #include "opencv2/features2d.hpp"
 #include "opencv2/xfeatures2d.hpp"
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/stitching.hpp"
+
+//include files from SSBA for bundle adjustment
+#define V3DLIB_ENABLE_SUITESPARSE
+
+#include "Math/v3d_linear.h"
+#include "Base/v3d_vrmlio.h"
+#include "Geometry/v3d_metricbundle.h"
 
 #include "CameraCalib.hpp"
 
@@ -78,6 +87,7 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
 	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
 	vector<KeyPoint>& kpts_good, vector<CloudPoint>& global_pcloud,
+	map<pair<int, int>, Matx34d>& all_pmats,
 	int idx1, int idx2, int image_size, bool show);
 void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 	vector<Mat>& imagesColored, vector<vector<KeyPoint>>& all_keypoints,

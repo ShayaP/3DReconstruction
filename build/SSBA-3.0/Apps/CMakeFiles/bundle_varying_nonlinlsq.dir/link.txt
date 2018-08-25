@@ -1,0 +1,1 @@
+/usr/bin/c++     -O3 -DNDEBUG    CMakeFiles/bundle_varying_nonlinlsq.dir/bundle_varying_nonlinlsq.cpp.o  -o bundle_varying_nonlinlsq  -L/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0 -rdynamic ../libV3D.a ../libcolamd.a -Wl,-rpath,/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0 

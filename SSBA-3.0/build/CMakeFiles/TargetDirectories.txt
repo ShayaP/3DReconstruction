@@ -1,0 +1,9 @@
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/CMakeFiles/V3D.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/CMakeFiles/colamd.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/Apps/CMakeFiles/edit_cache.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/Apps/CMakeFiles/bundle_common.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/Apps/CMakeFiles/bundle_varying.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/Apps/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/build/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir

@@ -53,6 +53,7 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "/usr/include/ni"
   "/usr/local/include"
   "/usr/local/include/opencv"
+  "../SSBA-3.0"
   "/usr/include/x86_64-linux-gnu/qt5"
   "/usr/include/x86_64-linux-gnu/qt5/QtWidgets"
   "/usr/include/x86_64-linux-gnu/qt5/QtGui"
