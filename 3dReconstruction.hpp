@@ -24,13 +24,6 @@
 #include "opencv2/calib3d/calib3d.hpp"
 #include "opencv2/stitching.hpp"
 
-//include files from SSBA for bundle adjustment
-#define V3DLIB_ENABLE_SUITESPARSE
-
-#include "Math/v3d_linear.h"
-#include "Base/v3d_vrmlio.h"
-#include "Geometry/v3d_metricbundle.h"
-
 #include "CameraCalib.hpp"
 
 vector<Point3d> myCloud;
@@ -87,11 +80,14 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
 	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
 	vector<KeyPoint>& kpts_good, vector<CloudPoint>& global_pcloud,
-	map<pair<int, int>, Matx34d>& all_pmats,
+	map<int, Matx34d>& all_pmats,
 	int idx1, int idx2, int image_size, bool show);
 void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 	vector<Mat>& imagesColored, vector<vector<KeyPoint>>& all_keypoints,
 	int image_size);
 void displayCloud(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud, 
 	vector<Point3d>& all_points);
+void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& cam_matrix,
+	const vector<vector<KeyPoint>>& all_keypoints, map<int, Matx34d>& all_pmats, bool show);
+int get2DMeasurements(const vector<CloudPoint>& global_pcloud);
 #endif

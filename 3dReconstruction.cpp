@@ -1,3 +1,10 @@
+//include files from SSBA for bundle adjustment
+#define V3DLIB_ENABLE_SUITESPARSE
+
+#include <Math/v3d_linear.h>
+#include <Base/v3d_vrmlio.h>
+#include <Geometry/v3d_metricbundle.h>
+
 #include "3dReconstruction.hpp"
 
 using namespace std;
@@ -15,7 +22,7 @@ int main(int argc, char** argv) {
 	vector<Mat> all_descriptors;
 	vector<CloudPoint> global_pcloud;
 
-	map<pair<int, int>, Matx34d> all_pmats;
+	map<int, Matx34d> all_pmats;
 	map<pair<int, int>, vector<KeyPoint>> all_good_keypoints;
 	map<pair<int, int>, vector<DMatch>> all_matches;
 
@@ -86,11 +93,8 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
-	cout << "----printing all_pmats------- " << endl;
-	for (auto it = all_pmats.begin(); it != all_pmats.end(); ++it) {
-		cout << "\n" << it->second << endl;
-	} 
 	cout << "\n...after sfm found: " << global_pcloud.size() << " points.\n" << endl;
+
 	//find the RGB colors for the points that were found.
 	vector<Vec3b> RGBCloud;
 	getPointRGB(global_pcloud, RGBCloud, imagesColored, all_keypoints, images.size());
@@ -105,10 +109,161 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
-void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& K,
-	const vector<vector<KeyPoint>>& all_keypoints) {
+void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& cam_matrix,
+	const vector<vector<KeyPoint>>& all_keypoints, map<int, Matx34d>& all_pmats, bool show) {
+	int N = all_pmats.size();
+	int M = global_pcloud.size();
+	int K = get2DMeasurements(global_pcloud);
 
+	StdDistortionFunction distortion;
+
+	Matrix3x3d KMat;
+	makeIdentityMatrix(KMat);
+	KMat[0][0] = cam_matrix.at<double>(0,0); //fx
+	KMat[1][1] = cam_matrix.at<double>(1,1); //fy
+	KMat[0][1] = cam_matrix.at<double>(0,1); //skew
+	KMat[0][2] = cam_matrix.at<double>(0,2); //ppx
+	KMat[1][2] = cam_matrix.at<double>(1,2); //ppy
+
+	double const f0 = KMat[0][0];
+	if (show) {
+		cout << "before bundle adjustment: " << endl;
+		displayMatrix(KMat);
+	}
+
+	Matrix3x3d Knorm = KMat;
+	scaleMatrixIP(1.0/f0, Knorm);
+	Knorm[2][2] = 1.0;
 	
+	vector<int> pointIdFwdMap(M);
+	map<int, int> pointIdBwdMap;
+	
+	//conver 3D point cloud to BA datastructs
+	vector<Vector3d > Xs(M);
+	for (int i = 0; i < M; ++i) {
+		int pointId = i;
+		Xs[i][0] = global_pcloud[i].pt.x;
+		Xs[i][1] = global_pcloud[i].pt.y;
+		Xs[i][2] = global_pcloud[i].pt.z;
+		pointIdFwdMap[i] = pointId;
+		pointIdBwdMap.insert(make_pair(pointId, i));
+	}
+	vector<int> camIdFwdMap(N,-1);
+	map<int, int> camIdBwdMap;
+	
+	//convert cameras to BA datastructs
+	vector<CameraMatrix> cams(N);
+	for (int i = 0; i < N; ++i) {
+		int camId = i;
+		Matrix3x3d R;
+		Vector3d T;
+
+		Matx34d& P = all_pmats[i];
+		R[0][0] = P(0,0); R[0][1] = P(0,1); R[0][2] = P(0,2); T[0] = P(0,3);
+		R[1][0] = P(1,0); R[1][1] = P(1,1); R[1][2] = P(1,2); T[1] = P(1,3);
+		R[2][0] = P(2,0); R[2][1] = P(2,1); R[2][2] = P(2,2); T[2] = P(2,3);
+		
+		camIdFwdMap[i] = camId;
+		camIdBwdMap.insert(make_pair(camId, i));
+		
+		cams[i].setIntrinsic(Knorm);
+		cams[i].setRotation(R);
+		cams[i].setTranslation(T);
+	}
+
+	vector<Vector2d > measurements;
+	vector<int> correspondingView;
+	vector<int> correspondingPoint;
+	
+	measurements.reserve(K);
+	correspondingView.reserve(K);
+	correspondingPoint.reserve(K);
+
+	for (int i = 0; i < global_pcloud.size(); ++i) {
+		for (int j = 0; j < global_pcloud[i].imgpt_for_img.size(); ++j) {
+			if (global_pcloud[i].imgpt_for_img[j] >= 0) {
+				int view = j;
+				int point = i;
+				Vector3d p, np;
+				Point cvp = all_keypoints[j][global_pcloud[i].imgpt_for_img[j]].pt;
+				p[0] = cvp.x;
+				p[1] = cvp.y;
+				p[2] = 1.0;
+
+				if (camIdBwdMap.find(view) != camIdBwdMap.end() &&
+					pointIdBwdMap.find(point) != pointIdBwdMap.end()) {
+					// Normalize the measurements to match the unit focal length.
+					scaleVectorIP(1.0/f0, p);
+					measurements.push_back(Vector2d(p[0], p[1]));
+					correspondingView.push_back(camIdBwdMap[view]);
+					correspondingPoint.push_back(pointIdBwdMap[point]);
+				}
+			}
+		}
+	}
+	K = measurements.size();
+	double const inlierThreshold = 2.0 / fabs(f0);
+
+	Matrix3x3d K0 = cams[0].getIntrinsic();
+	if (show) {
+		cout << "K0 before: " << endl;
+		displayMatrix(K0);
+	}
+	bool  good_adjustment = false;
+	{
+		ScopedBundleExtrinsicNormalizer extNorm(cams, Xs);
+		ScopedBundleIntrinsicNormalizer intNorm(cams,measurements,correspondingView);
+		CommonInternalsMetricBundleOptimizer opt(V3D::FULL_BUNDLE_FOCAL_LENGTH_PP, inlierThreshold, K0, distortion, cams, Xs,
+												 measurements, correspondingView, correspondingPoint);
+		
+		opt.tau = 1e-3;
+		opt.maxIterations = 50;
+		opt.minimize();
+		
+		cout << "optimizer status = " << opt.status << endl;
+		
+good_adjustment = (opt.status != 2);
+	}
+	if (show) {
+		cout << "K0 after: " << endl;
+		displayMatrix(K0);
+	}
+	for (int i = 0; i < N; ++i) {
+		cams[i].setIntrinsic(K0);
+	}
+
+	Matrix3x3d Knew = K0;
+	scaleMatrixIP(f0, Knew);
+	Knew[2][2] = 1.0;
+	if (show) {
+		cout << "Knew: " << endl;
+		displayMatrix(Knew);
+	}
+
+	if (good_adjustment) {
+		for (int i = 0; i < Xs.size(); ++i) {
+			global_pcloud[i].pt.x = Xs[i][0];
+			global_pcloud[i].pt.y = Xs[i][1];
+			global_pcloud[i].pt.z = Xs[i][2];
+		}
+		for (int i = 0; i < N; ++i) {
+			Matrix3x3d R = cams[i].getRotation();
+			Vector3d T = cams[i].getTranslation();
+
+			Matx34d P;
+			P(0,0) = R[0][0]; P(0,1) = R[0][1]; P(0,2) = R[0][2]; P(0,3) = T[0];
+			P(1,0) = R[1][0]; P(1,1) = R[1][1]; P(1,2) = R[1][2]; P(1,3) = T[1];
+			P(2,0) = R[2][0]; P(2,1) = R[2][1]; P(2,2) = R[2][2]; P(2,3) = T[2];
+			
+			all_pmats[i] = P;
+		}
+		cam_matrix.at<double>(0,0) = Knew[0][0];
+		cam_matrix.at<double>(0,1) = Knew[0][1];
+		cam_matrix.at<double>(0,2) = Knew[0][2];
+		cam_matrix.at<double>(1,1) = Knew[1][1];
+		cam_matrix.at<double>(1,2) = Knew[1][2];
+	}
+
 }
 
 int get2DMeasurements(const vector<CloudPoint>& global_pcloud) {
@@ -188,7 +343,7 @@ void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
 	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
 	vector<KeyPoint>& kpts_good, vector<CloudPoint>& global_pcloud,
-	map<pair<int, int>, Matx34d>& all_pmats,
+	map<int, Matx34d>& all_pmats,
 	int idx1, int idx2, int image_size, bool show) {
 	cout << "\nSFM with images: [" << idx1 << ", " << idx2 << "]" << endl;
 
@@ -248,6 +403,7 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 	Matx34d P1(1, 0, 0, 0,
 		0, 1, 0, 0, 
 		0, 0, 1, 0);
+	all_pmats[0] = P1;
 	Matx34d P2;
 	//now test to see which of the 4 P2s are good.
 	bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, kpts_good, 
@@ -257,7 +413,8 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 		return false;
 	} else {
 		//store the camera matrices in the global data structure.
-		all_pmats[make_pair(idx1, idx2)] = P2;
+		cout << all_pmats[idx1] << endl;
+		all_pmats[idx2] = P2;
 		cout << "p2 found successfully" << endl;
 
 		//triangulate the points and create point cloud.

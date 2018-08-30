@@ -1,23 +1,32 @@
 set (CMAKE_CXX_STANDARD 11)
 cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
+cmake_policy(SET CMP0015 NEW)
 
 project(myproject)
 add_executable(3drecon 3dReconstruction.hpp 3dReconstruction.cpp CameraCalib.hpp)
+set(SSBA_LIBRARY_DIR "${CMAKE_SOURCE_DIR}/SSBA" CACHE PATH "Directory to find SSBA libs")
 
 find_package(PCL 1.7.2 REQUIRED)
 find_package(OpenCV REQUIRED)
 
+#PCL
 include_directories(${PCL_INCLUDE_DIRS})
-include_directories(${OpenCV_INCLUDE_DIRS})
-include_directories("${PROJECT_SOURCE_DIR}/SSBA-3.0")
-add_subdirectory (SSBA-3.0)
+link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 list(REMOVE_ITEM PCL_LIBRARIES "vtkproj4")
-link_directories(${PCL_LIBRARY_DIRS})
-link_directories(${OpenCV_LIB_DIR})
 
-set (EXTRA_LIBS ${EXTRA_LIBS} SSBA-3.0)
+#SSBA
+link_directories(${SSBA_LIBRARY_DIR})
+include_directories(${SSBA_LIBRARY_DIR})
+add_subdirectory (SSBA)
+#le(GLOB SSBA extra_libs/*)
+#add_library(ssba ${SSBA})
+#set ( EXTRA_INCLUDE_DIRS "extra_libs/include" )
+
+#OpenCV
+include_directories(${OpenCV_INCLUDE_DIRS})
+link_directories(${OpenCV_LIB_DIR})
 
 target_link_libraries (3drecon ${PCL_LIBRARIES})
 target_link_libraries (3drecon ${OpenCV_LIBS})
-target_link_libraries (3drecon ${SSBA-3.0})
+target_link_libraries (3drecon V3D colamd)
