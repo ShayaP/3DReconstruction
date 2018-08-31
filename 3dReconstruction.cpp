@@ -94,9 +94,85 @@ int main(int argc, char** argv) {
 		}
 	}
 	cout << "\n...after sfm found: " << global_pcloud.size() << " points.\n" << endl;
+	vector<Vec3b> RGBCloud;
+	// getPointRGB(global_pcloud, RGBCloud, imagesColored, all_keypoints, images.size());
+	// if (RGBCloud.size() != global_pcloud.size()) {
+	// 	cout << "error: color values are not the same size as the points" << endl;
+	// 	return -1;
+	// }
+
+	// //convert the found cloudpoints into points and colors and display them using PCL.
+	// displayCloud(global_pcloud, RGBCloud, all_points);
+	cout << "\n -- Starting Bundle Adjustment -- \n" << endl;
+	Mat cam_matrix = K;
+	adjustBundle(global_pcloud, cam_matrix, all_keypoints, all_pmats, show);
+	cout << "...finished bundle adjustment" << endl;
+	K = cam_matrix;
+
+	set<int> done_views;
+	set<int> good_views;
+	Matx34d P = all_pmats[0];
+	Mat_<double> t = (Mat_<double>(1, 3) << P(0, 3), P(1, 3), P(2, 3));
+	Mat_<double> R = (cv::Mat_<double>(3,3) << P(0,0), P(0,1), P(0,2), 
+											P(1,0), P(1,1), P(1,2), 
+											P(2,0), P(2,1), P(2,2));
+	Mat_<double> rvec(1, 3);
+	Rodrigues(R, rvec);
+	while(done_views.size() != images.size()) {
+		unsigned int max_2d3d_view = -1, max_2d3d_count = 0;
+		vector<Point3f> max_3d; 
+		vector<Point2f> max_2d;
+		for (int i = 0; i < images.size(); ++i) {
+			if (done_views.find(i) != done_views.end()) continue;
+			vector<Point3f> tmp3d; 
+			vector<Point2f> tmp2d;
+			Find2D3DCorrespondences(i, tmp3d, tmp2d, global_pcloud, good_views, all_matches,
+				all_keypoints);
+			if (tmp3d.size() > max_2d3d_count) {
+				max_2d3d_count = tmp3d.size();
+				max_2d3d_view = i;
+				max_3d = tmp3d;
+				max_2d = tmp2d;
+			}
+		}
+		int i = max_2d3d_view;
+		done_views.insert(i);
+		bool good_poseEstimation = estimatePose(i, rvec, t, R, max_3d, max_2d, K, 
+			distanceCoeffs);
+		if (!good_poseEstimation) {
+			continue;
+		}
+		all_pmats[i] = Matx34d (R(0,0),R(0,1),R(0,2),t(0),
+								R(1,0),R(1,1),R(1,2),t(1),
+								R(2,0),R(2,1),R(2,2),t(2));
+		for (auto done_view = good_views.begin(); done_view != good_views.end(); ++done_view) {
+			int view = *done_view;
+			if (view == i) continue;
+			vector<CloudPoint> new_triangulated;
+			vector<int> add_to_cloud;
+			vector<KeyPoint> correspondingImg1Pt;
+			Matx34d P1 = all_pmats[i];
+			Matx34d P2 = all_pmats[view];
+			bool good_triangulation = triangulateBetweenViews(P1, P2, new_triangulated,
+				all_matches, all_good_keypoints[make_pair(i, view)], all_good_keypoints[make_pair(i, view)],
+				K, distanceCoeffs, correspondingImg1Pt, add_to_cloud, show, global_pcloud,
+				images.size(), i, view);
+			if (!good_triangulation) continue;
+			for (int j = 0; j < add_to_cloud.size(); ++j) {
+				if (add_to_cloud[j] == 1) {
+					global_pcloud.push_back(new_triangulated[j]);
+				}
+			}
+		}
+		good_views.insert(i);
+		Mat cam_matrix = K;
+		adjustBundle(global_pcloud, cam_matrix, all_keypoints, all_pmats, show);
+
+	}
+
 
 	//find the RGB colors for the points that were found.
-	vector<Vec3b> RGBCloud;
+	//vector<Vec3b> RGBCloud;
 	getPointRGB(global_pcloud, RGBCloud, imagesColored, all_keypoints, images.size());
 	if (RGBCloud.size() != global_pcloud.size()) {
 		cout << "error: color values are not the same size as the points" << endl;
@@ -107,6 +183,73 @@ int main(int argc, char** argv) {
 	displayCloud(global_pcloud, RGBCloud, all_points);
 
 	return 0;
+}
+
+bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<double>& R,
+	vector<Point3f>& cloud, vector<Point2f>& imgPoints, Mat& K, Mat& distanceCoeffs) {
+	if (cloud.size() <= 7 || imgPoints.size() <= 7 || cloud.size() != imgPoints.size()) {
+		cout << "err: not enough points to find pose." << endl;
+		return false;
+	}
+	vector<int> inliers;
+	double min, max;
+	minMaxIdx(imgPoints, &min, &max);
+	solvePnPRansac(cloud, imgPoints, K, distanceCoeffs,	rvec, t, true, 
+		1000, 0.006 * max, 0.25 * (double)(imgPoints.size()), inliers, CV_EPNP);
+	vector<Point2f> projected3D;
+	projectPoints(cloud, rvec, t, K, distanceCoeffs, projected3D);
+	if (inliers.size() == 0) {
+		for (int i = 0; i < projected3D.size(); ++i) {
+			if (norm(projected3D[i] - imgPoints[i]) < 10.0) {
+				inliers.push_back(i);
+			}
+		}
+	}
+	if (inliers.size() < (double)(imgPoints.size()) / 5.0) {
+		cout << "err: not enough inliers to find good pose." << endl;
+		return false;
+	}
+	if (norm(t) > 200.0) {
+		cout << "err: camera movement is to big. " << endl;
+		return false;
+	}
+	Rodrigues(rvec, R);
+	if (!checkRotationMat(R)) {
+		cout << "err: not a coherent rotation to find good pose." << endl;
+		return false;
+	}
+	return true;
+}
+
+/**
+* this function finds the points that have a 3d coordinate in the global point cloud
+* and an image coordinate in the keypoints that correspond.
+* and further refines the cloud point.
+*/ 
+void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud, 
+	vector<Point2f>& imgPoints, vector<CloudPoint>& global_pcloud,
+	set<int>& good_views, map<pair<int, int>, vector<DMatch>>& all_matches,
+	vector<vector<KeyPoint>>& all_keypoints) {
+	cloud.clear();
+	imgPoints.clear();
+	vector<int> cloud_status(global_pcloud.size(), 0);
+	for (auto done_view = good_views.begin(); done_view != good_views.end(); ++done_view) {
+		int old_view = *done_view;
+		vector<DMatch> matches = all_matches[make_pair(old_view, curr_view)];
+		for (int match = 0; match < matches.size(); ++match) {
+			int old_index = matches[match].queryIdx;
+			for (int point = 0; point < global_pcloud.size(); ++point) {
+				if (old_index == global_pcloud[point].imgpt_for_img[old_view]
+					&& cloud_status[point] == 0) {
+					cloud.push_back(global_pcloud[point].pt);
+					imgPoints.push_back(all_keypoints[curr_view][matches[match].trainIdx].pt);
+					cloud_status[point] = 1;
+					break;
+				}
+			}
+		}
+
+	}
 }
 
 void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& cam_matrix,
@@ -403,7 +546,6 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 	Matx34d P1(1, 0, 0, 0,
 		0, 1, 0, 0, 
 		0, 0, 1, 0);
-	all_pmats[0] = P1;
 	Matx34d P2;
 	//now test to see which of the 4 P2s are good.
 	bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, kpts_good, 
@@ -413,7 +555,7 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 		return false;
 	} else {
 		//store the camera matrices in the global data structure.
-		cout << all_pmats[idx1] << endl;
+		all_pmats[idx1] = P1;
 		all_pmats[idx2] = P2;
 		cout << "p2 found successfully" << endl;
 

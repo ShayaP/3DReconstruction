@@ -90,4 +90,11 @@ void displayCloud(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& cam_matrix,
 	const vector<vector<KeyPoint>>& all_keypoints, map<int, Matx34d>& all_pmats, bool show);
 int get2DMeasurements(const vector<CloudPoint>& global_pcloud);
+void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud, 
+	vector<Point2f>& imgPoints, vector<CloudPoint>& global_pcloud,
+	set<int>& good_views, map<pair<int, int>, vector<DMatch>>& all_matches,
+	vector<vector<KeyPoint>>& all_keypoints);
+bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<double>& R,
+	vector<Point3f>& cloud, vector<Point2f>& imgPoints, Mat& K, Mat& distanceCoeffs);
+
 #endif
