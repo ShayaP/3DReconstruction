@@ -133,7 +133,7 @@ V3D: cmake_check_build_system
 
 # fast build rule for target.
 V3D/fast:
-	$(MAKE) -f SSBA-3.0/CMakeFiles/V3D.dir/build.make SSBA-3.0/CMakeFiles/V3D.dir/build
+	$(MAKE) -f SSBA/CMakeFiles/V3D.dir/build.make SSBA/CMakeFiles/V3D.dir/build
 .PHONY : V3D/fast
 
 #=============================================================================
@@ -146,7 +146,7 @@ colamd: cmake_check_build_system
 
 # fast build rule for target.
 colamd/fast:
-	$(MAKE) -f SSBA-3.0/CMakeFiles/colamd.dir/build.make SSBA-3.0/CMakeFiles/colamd.dir/build
+	$(MAKE) -f SSBA/CMakeFiles/colamd.dir/build.make SSBA/CMakeFiles/colamd.dir/build
 .PHONY : colamd/fast
 
 #=============================================================================
@@ -159,7 +159,7 @@ bundle_common: cmake_check_build_system
 
 # fast build rule for target.
 bundle_common/fast:
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/build
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_common.dir/build.make SSBA/Apps/CMakeFiles/bundle_common.dir/build
 .PHONY : bundle_common/fast
 
 #=============================================================================
@@ -172,7 +172,7 @@ bundle_varying: cmake_check_build_system
 
 # fast build rule for target.
 bundle_varying/fast:
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/build
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying.dir/build
 .PHONY : bundle_varying/fast
 
 #=============================================================================
@@ -185,7 +185,7 @@ bundle_varying_nonlinlsq: cmake_check_build_system
 
 # fast build rule for target.
 bundle_varying_nonlinlsq/fast:
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build
 .PHONY : bundle_varying_nonlinlsq/fast
 
 3dReconstruction.o: 3dReconstruction.cpp.o

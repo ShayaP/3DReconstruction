@@ -1,0 +1,2 @@
+/usr/bin/ar qc libssba.a  CMakeFiles/ssba.dir/extra_libs/colamd.c.o CMakeFiles/ssba.dir/extra_libs/colamd_global.c.o CMakeFiles/ssba.dir/extra_libs/SuiteSparse_config.c.o CMakeFiles/ssba.dir/extra_libs/v3d_metricbundle.cpp.o CMakeFiles/ssba.dir/extra_libs/v3d_nonlinlsq.cpp.o CMakeFiles/ssba.dir/extra_libs/v3d_optimization.cpp.o CMakeFiles/ssba.dir/extra_libs/v3d_optimization_lm.cpp.o CMakeFiles/ssba.dir/extra_libs/v3d_stereobundle.cpp.o
+/usr/bin/ranlib libssba.a

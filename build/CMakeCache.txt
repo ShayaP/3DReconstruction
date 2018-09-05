@@ -466,16 +466,16 @@ Qt5Network_DIR:PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5Network
 Qt5WebKit_DIR:PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt5WebKit
 
 //Directory to find SSBA libs
-SSBA_LIBRARY_DIR:PATH=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0/SSBA-3.0/build
+SSBA_LIBRARY_DIR:PATH=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA
 
 //Value Computed by CMake
-V3D_BINARY_DIR:STATIC=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/SSBA-3.0
+V3D_BINARY_DIR:STATIC=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/SSBA
 
 //Dependencies for target
 V3D_LIB_DEPENDS:STATIC=
 
 //Value Computed by CMake
-V3D_SOURCE_DIR:STATIC=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA-3.0
+V3D_SOURCE_DIR:STATIC=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA
 
 //Dependencies for target
 colamd_LIB_DEPENDS:STATIC=
@@ -485,6 +485,9 @@ myproject_BINARY_DIR:STATIC=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests
 
 //Value Computed by CMake
 myproject_SOURCE_DIR:STATIC=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests
+
+//Dependencies for target
+ssba_LIB_DEPENDS:STATIC=
 
 
 ########################

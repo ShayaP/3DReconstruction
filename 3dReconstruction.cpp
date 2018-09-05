@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
 	// 	return -1;
 	// }
 
-	// //convert the found cloudpoints into points and colors and display them using PCL.
+	// // //convert the found cloudpoints into points and colors and display them using PCL.
 	// displayCloud(global_pcloud, RGBCloud, all_points);
 	cout << "\n -- Starting Bundle Adjustment -- \n" << endl;
 	Mat cam_matrix = K;
@@ -111,13 +111,18 @@ int main(int argc, char** argv) {
 
 	set<int> done_views;
 	set<int> good_views;
-	Matx34d P = all_pmats[0];
+	Matx34d P = all_pmats[1];
 	Mat_<double> t = (Mat_<double>(1, 3) << P(0, 3), P(1, 3), P(2, 3));
 	Mat_<double> R = (cv::Mat_<double>(3,3) << P(0,0), P(0,1), P(0,2), 
 											P(1,0), P(1,1), P(1,2), 
 											P(2,0), P(2,1), P(2,2));
 	Mat_<double> rvec(1, 3);
 	Rodrigues(R, rvec);
+	done_views.insert(0);
+	done_views.insert(1);
+	good_views.insert(0);
+	good_views.insert(1);
+
 	while(done_views.size() != images.size()) {
 		unsigned int max_2d3d_view = -1, max_2d3d_count = 0;
 		vector<Point3f> max_3d; 
@@ -154,9 +159,9 @@ int main(int argc, char** argv) {
 			Matx34d P1 = all_pmats[i];
 			Matx34d P2 = all_pmats[view];
 			bool good_triangulation = triangulateBetweenViews(P1, P2, new_triangulated,
-				all_matches, all_good_keypoints[make_pair(i, view)], all_good_keypoints[make_pair(i, view)],
+				all_matches, all_good_keypoints[make_pair(view, i)], all_good_keypoints[make_pair(view, i)],
 				K, distanceCoeffs, correspondingImg1Pt, add_to_cloud, show, global_pcloud,
-				images.size(), i, view);
+				images.size(), view, i);
 			if (!good_triangulation) continue;
 			for (int j = 0; j < add_to_cloud.size(); ++j) {
 				if (add_to_cloud[j] == 1) {
@@ -187,6 +192,7 @@ int main(int argc, char** argv) {
 
 bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<double>& R,
 	vector<Point3f>& cloud, vector<Point2f>& imgPoints, Mat& K, Mat& distanceCoeffs) {
+
 	if (cloud.size() <= 7 || imgPoints.size() <= 7 || cloud.size() != imgPoints.size()) {
 		cout << "err: not enough points to find pose." << endl;
 		return false;
@@ -195,7 +201,7 @@ bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<doubl
 	double min, max;
 	minMaxIdx(imgPoints, &min, &max);
 	solvePnPRansac(cloud, imgPoints, K, distanceCoeffs,	rvec, t, true, 
-		1000, 0.006 * max, 0.25 * (double)(imgPoints.size()), inliers, CV_EPNP);
+		1000, 0.006 * max, 0.99, inliers, CV_EPNP);
 	vector<Point2f> projected3D;
 	projectPoints(cloud, rvec, t, K, distanceCoeffs, projected3D);
 	if (inliers.size() == 0) {
@@ -230,6 +236,7 @@ void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud,
 	vector<Point2f>& imgPoints, vector<CloudPoint>& global_pcloud,
 	set<int>& good_views, map<pair<int, int>, vector<DMatch>>& all_matches,
 	vector<vector<KeyPoint>>& all_keypoints) {
+
 	cloud.clear();
 	imgPoints.clear();
 	vector<int> cloud_status(global_pcloud.size(), 0);
@@ -248,7 +255,6 @@ void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud,
 				}
 			}
 		}
-
 	}
 }
 
@@ -257,7 +263,6 @@ void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& cam_matrix,
 	int N = all_pmats.size();
 	int M = global_pcloud.size();
 	int K = get2DMeasurements(global_pcloud);
-
 	StdDistortionFunction distortion;
 
 	Matrix3x3d KMat;
@@ -327,7 +332,7 @@ void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& cam_matrix,
 			if (global_pcloud[i].imgpt_for_img[j] >= 0) {
 				int view = j;
 				int point = i;
-				Vector3d p, np;
+				Vector3d p;
 				Point cvp = all_keypoints[j][global_pcloud[i].imgpt_for_img[j]].pt;
 				p[0] = cvp.x;
 				p[1] = cvp.y;
@@ -365,7 +370,7 @@ void adjustBundle(vector<CloudPoint>& global_pcloud, Mat& cam_matrix,
 		
 		cout << "optimizer status = " << opt.status << endl;
 		
-good_adjustment = (opt.status != 2);
+		good_adjustment = (opt.status != 2);
 	}
 	if (show) {
 		cout << "K0 after: " << endl;
@@ -406,7 +411,6 @@ good_adjustment = (opt.status != 2);
 		cam_matrix.at<double>(1,1) = Knew[1][1];
 		cam_matrix.at<double>(1,2) = Knew[1][2];
 	}
-
 }
 
 int get2DMeasurements(const vector<CloudPoint>& global_pcloud) {
@@ -543,9 +547,10 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 	//now we find our camera matricies P and P1.
 	//we assume that P = [I|0]
 	cout << "\n<================== Searching for P2 =============>\n" << endl;
-	Matx34d P1(1, 0, 0, 0,
-		0, 1, 0, 0, 
-		0, 0, 1, 0);
+	Matx34d P1( 1, 0, 0, 0,
+				0, 1, 0, 0, 
+				0, 0, 1, 0);
+	//all_pmats[0] = P1;
 	Matx34d P2;
 	//now test to see which of the 4 P2s are good.
 	bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, kpts_good, 
@@ -761,7 +766,6 @@ Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, 
 	int num_iterations = 10;
 	float EPSILON = 0.0001;
 
-	//cout << "starting IterativeLinearLSTriangulation.. " << endl;
 	double wi1 = 1;
 	double wi2 = 1;
 	Mat_<double> X(4, 1);
@@ -955,7 +959,6 @@ bool testTriangulation(vector<CloudPoint>& pointCloud, const Matx34d& P,
 	for (int i = 0; i < 12; ++i) {
 		P4x4.val[i] = P.val[i];
 	}
-
 	perspectiveTransform(pcloud_pt3d, pcloud_pt3d_projected, P4x4);
 	status.resize(pointCloud.size(), 0);
 	for (int i = 0; i < pointCloud.size(); ++i) {

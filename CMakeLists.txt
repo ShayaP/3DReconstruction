@@ -19,9 +19,6 @@ list(REMOVE_ITEM PCL_LIBRARIES "vtkproj4")
 link_directories(${SSBA_LIBRARY_DIR})
 include_directories(${SSBA_LIBRARY_DIR})
 add_subdirectory (SSBA)
-#le(GLOB SSBA extra_libs/*)
-#add_library(ssba ${SSBA})
-#set ( EXTRA_INCLUDE_DIRS "extra_libs/include" )
 
 #OpenCV
 include_directories(${OpenCV_INCLUDE_DIRS})

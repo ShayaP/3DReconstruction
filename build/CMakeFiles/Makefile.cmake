@@ -8,10 +8,10 @@ set(CMAKE_DEPENDS_GENERATOR "Unix Makefiles")
 set(CMAKE_MAKEFILE_DEPENDS
   "CMakeCache.txt"
   "../CMakeLists.txt"
-  "../SSBA-3.0/Apps/CMakeLists.txt"
-  "../SSBA-3.0/CMakeLists.txt"
-  "../SSBA-3.0/Config/local_config.cmake"
-  "../SSBA-3.0/Config/v3d_macros.cmake"
+  "../SSBA/Apps/CMakeLists.txt"
+  "../SSBA/CMakeLists.txt"
+  "../SSBA/Config/local_config.cmake"
+  "../SSBA/Config/v3d_macros.cmake"
   "CMakeFiles/3.5.1/CMakeCCompiler.cmake"
   "CMakeFiles/3.5.1/CMakeCXXCompiler.cmake"
   "CMakeFiles/3.5.1/CMakeSystem.cmake"
@@ -247,16 +247,16 @@ set(CMAKE_MAKEFILE_OUTPUTS
 # Byproducts of CMake generate step:
 set(CMAKE_MAKEFILE_PRODUCTS
   "CMakeFiles/CMakeDirectoryInformation.cmake"
-  "SSBA-3.0/CMakeFiles/CMakeDirectoryInformation.cmake"
-  "SSBA-3.0/Apps/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "SSBA/CMakeFiles/CMakeDirectoryInformation.cmake"
+  "SSBA/Apps/CMakeFiles/CMakeDirectoryInformation.cmake"
   )
 
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/3drecon.dir/DependInfo.cmake"
-  "SSBA-3.0/CMakeFiles/V3D.dir/DependInfo.cmake"
-  "SSBA-3.0/CMakeFiles/colamd.dir/DependInfo.cmake"
-  "SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/DependInfo.cmake"
-  "SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/DependInfo.cmake"
-  "SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/DependInfo.cmake"
+  "SSBA/CMakeFiles/V3D.dir/DependInfo.cmake"
+  "SSBA/CMakeFiles/colamd.dir/DependInfo.cmake"
+  "SSBA/Apps/CMakeFiles/bundle_common.dir/DependInfo.cmake"
+  "SSBA/Apps/CMakeFiles/bundle_varying.dir/DependInfo.cmake"
+  "SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/DependInfo.cmake"
   )

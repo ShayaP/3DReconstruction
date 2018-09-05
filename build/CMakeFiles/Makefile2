@@ -63,7 +63,8 @@ CMAKE_BINARY_DIR = /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build
 # Target rules for target CMakeFiles/3drecon.dir
 
 # All Build rule for target.
-CMakeFiles/3drecon.dir/all:
+CMakeFiles/3drecon.dir/all: SSBA/CMakeFiles/V3D.dir/all
+CMakeFiles/3drecon.dir/all: SSBA/CMakeFiles/colamd.dir/all
 	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/depend
 	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=1,2 "Built target 3drecon"
@@ -76,7 +77,7 @@ all: CMakeFiles/3drecon.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/3drecon.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 12
 	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/3drecon.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 0
 .PHONY : CMakeFiles/3drecon.dir/rule
@@ -97,234 +98,234 @@ clean: CMakeFiles/3drecon.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Directory level rules for directory SSBA-3.0
+# Directory level rules for directory SSBA
 
 # Convenience name for "all" pass in the directory.
-SSBA-3.0/all: SSBA-3.0/CMakeFiles/V3D.dir/all
-SSBA-3.0/all: SSBA-3.0/CMakeFiles/colamd.dir/all
-SSBA-3.0/all: SSBA-3.0/Apps/all
+SSBA/all: SSBA/CMakeFiles/V3D.dir/all
+SSBA/all: SSBA/CMakeFiles/colamd.dir/all
+SSBA/all: SSBA/Apps/all
 
-.PHONY : SSBA-3.0/all
+.PHONY : SSBA/all
 
 # Convenience name for "clean" pass in the directory.
-SSBA-3.0/clean: SSBA-3.0/CMakeFiles/V3D.dir/clean
-SSBA-3.0/clean: SSBA-3.0/CMakeFiles/colamd.dir/clean
-SSBA-3.0/clean: SSBA-3.0/Apps/clean
+SSBA/clean: SSBA/CMakeFiles/V3D.dir/clean
+SSBA/clean: SSBA/CMakeFiles/colamd.dir/clean
+SSBA/clean: SSBA/Apps/clean
 
-.PHONY : SSBA-3.0/clean
+.PHONY : SSBA/clean
 
 # Convenience name for "preinstall" pass in the directory.
-SSBA-3.0/preinstall: SSBA-3.0/Apps/preinstall
+SSBA/preinstall: SSBA/Apps/preinstall
 
-.PHONY : SSBA-3.0/preinstall
+.PHONY : SSBA/preinstall
 
 #=============================================================================
-# Target rules for target SSBA-3.0/CMakeFiles/V3D.dir
+# Target rules for target SSBA/CMakeFiles/V3D.dir
 
 # All Build rule for target.
-SSBA-3.0/CMakeFiles/V3D.dir/all:
-	$(MAKE) -f SSBA-3.0/CMakeFiles/V3D.dir/build.make SSBA-3.0/CMakeFiles/V3D.dir/depend
-	$(MAKE) -f SSBA-3.0/CMakeFiles/V3D.dir/build.make SSBA-3.0/CMakeFiles/V3D.dir/build
+SSBA/CMakeFiles/V3D.dir/all:
+	$(MAKE) -f SSBA/CMakeFiles/V3D.dir/build.make SSBA/CMakeFiles/V3D.dir/depend
+	$(MAKE) -f SSBA/CMakeFiles/V3D.dir/build.make SSBA/CMakeFiles/V3D.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=3,4,5,6,7,8 "Built target V3D"
-.PHONY : SSBA-3.0/CMakeFiles/V3D.dir/all
+.PHONY : SSBA/CMakeFiles/V3D.dir/all
 
 # Include target in all.
-all: SSBA-3.0/CMakeFiles/V3D.dir/all
+all: SSBA/CMakeFiles/V3D.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-SSBA-3.0/CMakeFiles/V3D.dir/rule: cmake_check_build_system
+SSBA/CMakeFiles/V3D.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 6
-	$(MAKE) -f CMakeFiles/Makefile2 SSBA-3.0/CMakeFiles/V3D.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 SSBA/CMakeFiles/V3D.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 0
-.PHONY : SSBA-3.0/CMakeFiles/V3D.dir/rule
+.PHONY : SSBA/CMakeFiles/V3D.dir/rule
 
 # Convenience name for target.
-V3D: SSBA-3.0/CMakeFiles/V3D.dir/rule
+V3D: SSBA/CMakeFiles/V3D.dir/rule
 
 .PHONY : V3D
 
 # clean rule for target.
-SSBA-3.0/CMakeFiles/V3D.dir/clean:
-	$(MAKE) -f SSBA-3.0/CMakeFiles/V3D.dir/build.make SSBA-3.0/CMakeFiles/V3D.dir/clean
-.PHONY : SSBA-3.0/CMakeFiles/V3D.dir/clean
+SSBA/CMakeFiles/V3D.dir/clean:
+	$(MAKE) -f SSBA/CMakeFiles/V3D.dir/build.make SSBA/CMakeFiles/V3D.dir/clean
+.PHONY : SSBA/CMakeFiles/V3D.dir/clean
 
 # clean rule for target.
-clean: SSBA-3.0/CMakeFiles/V3D.dir/clean
+clean: SSBA/CMakeFiles/V3D.dir/clean
 
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target SSBA-3.0/CMakeFiles/colamd.dir
+# Target rules for target SSBA/CMakeFiles/colamd.dir
 
 # All Build rule for target.
-SSBA-3.0/CMakeFiles/colamd.dir/all:
-	$(MAKE) -f SSBA-3.0/CMakeFiles/colamd.dir/build.make SSBA-3.0/CMakeFiles/colamd.dir/depend
-	$(MAKE) -f SSBA-3.0/CMakeFiles/colamd.dir/build.make SSBA-3.0/CMakeFiles/colamd.dir/build
+SSBA/CMakeFiles/colamd.dir/all:
+	$(MAKE) -f SSBA/CMakeFiles/colamd.dir/build.make SSBA/CMakeFiles/colamd.dir/depend
+	$(MAKE) -f SSBA/CMakeFiles/colamd.dir/build.make SSBA/CMakeFiles/colamd.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=15,16,17,18 "Built target colamd"
-.PHONY : SSBA-3.0/CMakeFiles/colamd.dir/all
+.PHONY : SSBA/CMakeFiles/colamd.dir/all
 
 # Include target in all.
-all: SSBA-3.0/CMakeFiles/colamd.dir/all
+all: SSBA/CMakeFiles/colamd.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-SSBA-3.0/CMakeFiles/colamd.dir/rule: cmake_check_build_system
+SSBA/CMakeFiles/colamd.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 4
-	$(MAKE) -f CMakeFiles/Makefile2 SSBA-3.0/CMakeFiles/colamd.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 SSBA/CMakeFiles/colamd.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 0
-.PHONY : SSBA-3.0/CMakeFiles/colamd.dir/rule
+.PHONY : SSBA/CMakeFiles/colamd.dir/rule
 
 # Convenience name for target.
-colamd: SSBA-3.0/CMakeFiles/colamd.dir/rule
+colamd: SSBA/CMakeFiles/colamd.dir/rule
 
 .PHONY : colamd
 
 # clean rule for target.
-SSBA-3.0/CMakeFiles/colamd.dir/clean:
-	$(MAKE) -f SSBA-3.0/CMakeFiles/colamd.dir/build.make SSBA-3.0/CMakeFiles/colamd.dir/clean
-.PHONY : SSBA-3.0/CMakeFiles/colamd.dir/clean
+SSBA/CMakeFiles/colamd.dir/clean:
+	$(MAKE) -f SSBA/CMakeFiles/colamd.dir/build.make SSBA/CMakeFiles/colamd.dir/clean
+.PHONY : SSBA/CMakeFiles/colamd.dir/clean
 
 # clean rule for target.
-clean: SSBA-3.0/CMakeFiles/colamd.dir/clean
+clean: SSBA/CMakeFiles/colamd.dir/clean
 
 .PHONY : clean
 
 #=============================================================================
-# Directory level rules for directory SSBA-3.0/Apps
+# Directory level rules for directory SSBA/Apps
 
 # Convenience name for "all" pass in the directory.
-SSBA-3.0/Apps/all: SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/all
-SSBA-3.0/Apps/all: SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/all
-SSBA-3.0/Apps/all: SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
+SSBA/Apps/all: SSBA/Apps/CMakeFiles/bundle_common.dir/all
+SSBA/Apps/all: SSBA/Apps/CMakeFiles/bundle_varying.dir/all
+SSBA/Apps/all: SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
 
-.PHONY : SSBA-3.0/Apps/all
+.PHONY : SSBA/Apps/all
 
 # Convenience name for "clean" pass in the directory.
-SSBA-3.0/Apps/clean: SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/clean
-SSBA-3.0/Apps/clean: SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/clean
-SSBA-3.0/Apps/clean: SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
+SSBA/Apps/clean: SSBA/Apps/CMakeFiles/bundle_common.dir/clean
+SSBA/Apps/clean: SSBA/Apps/CMakeFiles/bundle_varying.dir/clean
+SSBA/Apps/clean: SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
 
-.PHONY : SSBA-3.0/Apps/clean
+.PHONY : SSBA/Apps/clean
 
 # Convenience name for "preinstall" pass in the directory.
-SSBA-3.0/Apps/preinstall:
+SSBA/Apps/preinstall:
 
-.PHONY : SSBA-3.0/Apps/preinstall
+.PHONY : SSBA/Apps/preinstall
 
 #=============================================================================
-# Target rules for target SSBA-3.0/Apps/CMakeFiles/bundle_common.dir
+# Target rules for target SSBA/Apps/CMakeFiles/bundle_common.dir
 
 # All Build rule for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/all: SSBA-3.0/CMakeFiles/V3D.dir/all
-SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/all: SSBA-3.0/CMakeFiles/colamd.dir/all
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/depend
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/build
+SSBA/Apps/CMakeFiles/bundle_common.dir/all: SSBA/CMakeFiles/V3D.dir/all
+SSBA/Apps/CMakeFiles/bundle_common.dir/all: SSBA/CMakeFiles/colamd.dir/all
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_common.dir/build.make SSBA/Apps/CMakeFiles/bundle_common.dir/depend
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_common.dir/build.make SSBA/Apps/CMakeFiles/bundle_common.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=9,10 "Built target bundle_common"
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/all
+.PHONY : SSBA/Apps/CMakeFiles/bundle_common.dir/all
 
 # Include target in all.
-all: SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/all
+all: SSBA/Apps/CMakeFiles/bundle_common.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/rule: cmake_check_build_system
+SSBA/Apps/CMakeFiles/bundle_common.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 12
-	$(MAKE) -f CMakeFiles/Makefile2 SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 SSBA/Apps/CMakeFiles/bundle_common.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 0
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/rule
+.PHONY : SSBA/Apps/CMakeFiles/bundle_common.dir/rule
 
 # Convenience name for target.
-bundle_common: SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/rule
+bundle_common: SSBA/Apps/CMakeFiles/bundle_common.dir/rule
 
 .PHONY : bundle_common
 
 # clean rule for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/clean:
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/clean
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/clean
+SSBA/Apps/CMakeFiles/bundle_common.dir/clean:
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_common.dir/build.make SSBA/Apps/CMakeFiles/bundle_common.dir/clean
+.PHONY : SSBA/Apps/CMakeFiles/bundle_common.dir/clean
 
 # clean rule for target.
-clean: SSBA-3.0/Apps/CMakeFiles/bundle_common.dir/clean
+clean: SSBA/Apps/CMakeFiles/bundle_common.dir/clean
 
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir
+# Target rules for target SSBA/Apps/CMakeFiles/bundle_varying.dir
 
 # All Build rule for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/all: SSBA-3.0/CMakeFiles/V3D.dir/all
-SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/all: SSBA-3.0/CMakeFiles/colamd.dir/all
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/depend
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/build
+SSBA/Apps/CMakeFiles/bundle_varying.dir/all: SSBA/CMakeFiles/V3D.dir/all
+SSBA/Apps/CMakeFiles/bundle_varying.dir/all: SSBA/CMakeFiles/colamd.dir/all
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying.dir/depend
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=11,12 "Built target bundle_varying"
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/all
+.PHONY : SSBA/Apps/CMakeFiles/bundle_varying.dir/all
 
 # Include target in all.
-all: SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/all
+all: SSBA/Apps/CMakeFiles/bundle_varying.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/rule: cmake_check_build_system
+SSBA/Apps/CMakeFiles/bundle_varying.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 12
-	$(MAKE) -f CMakeFiles/Makefile2 SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 SSBA/Apps/CMakeFiles/bundle_varying.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 0
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/rule
+.PHONY : SSBA/Apps/CMakeFiles/bundle_varying.dir/rule
 
 # Convenience name for target.
-bundle_varying: SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/rule
+bundle_varying: SSBA/Apps/CMakeFiles/bundle_varying.dir/rule
 
 .PHONY : bundle_varying
 
 # clean rule for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/clean:
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/clean
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/clean
+SSBA/Apps/CMakeFiles/bundle_varying.dir/clean:
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying.dir/clean
+.PHONY : SSBA/Apps/CMakeFiles/bundle_varying.dir/clean
 
 # clean rule for target.
-clean: SSBA-3.0/Apps/CMakeFiles/bundle_varying.dir/clean
+clean: SSBA/Apps/CMakeFiles/bundle_varying.dir/clean
 
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir
+# Target rules for target SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir
 
 # All Build rule for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all: SSBA-3.0/CMakeFiles/V3D.dir/all
-SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all: SSBA-3.0/CMakeFiles/colamd.dir/all
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/depend
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build
+SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all: SSBA/CMakeFiles/V3D.dir/all
+SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all: SSBA/CMakeFiles/colamd.dir/all
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/depend
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=13,14 "Built target bundle_varying_nonlinlsq"
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
+.PHONY : SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
 
 # Include target in all.
-all: SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
+all: SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/rule: cmake_check_build_system
+SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 12
-	$(MAKE) -f CMakeFiles/Makefile2 SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles 0
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/rule
+.PHONY : SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/rule
 
 # Convenience name for target.
-bundle_varying_nonlinlsq: SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/rule
+bundle_varying_nonlinlsq: SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/rule
 
 .PHONY : bundle_varying_nonlinlsq
 
 # clean rule for target.
-SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean:
-	$(MAKE) -f SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
-.PHONY : SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
+SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean:
+	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
+.PHONY : SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
 
 # clean rule for target.
-clean: SSBA-3.0/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
+clean: SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/clean
 
 .PHONY : clean
 

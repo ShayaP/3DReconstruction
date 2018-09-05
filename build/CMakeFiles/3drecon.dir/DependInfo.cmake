@@ -51,9 +51,9 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "/usr/include/pcl-1.7"
   "/usr/include/eigen3"
   "/usr/include/ni"
+  "../SSBA"
   "/usr/local/include"
   "/usr/local/include/opencv"
-  "../SSBA-3.0"
   "/usr/include/x86_64-linux-gnu/qt5"
   "/usr/include/x86_64-linux-gnu/qt5/QtWidgets"
   "/usr/include/x86_64-linux-gnu/qt5/QtGui"
@@ -63,6 +63,8 @@ set(CMAKE_CXX_TARGET_INCLUDE_PATH
 
 # Targets to which this target links.
 set(CMAKE_TARGET_LINKED_INFO_FILES
+  "/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/SSBA/CMakeFiles/V3D.dir/DependInfo.cmake"
+  "/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/SSBA/CMakeFiles/colamd.dir/DependInfo.cmake"
   )
 
 # Fortran module output directory.

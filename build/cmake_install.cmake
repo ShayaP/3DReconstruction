@@ -34,7 +34,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/SSBA-3.0/cmake_install.cmake")
+  include("/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/SSBA/cmake_install.cmake")
 
 endif()
 
