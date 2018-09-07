@@ -57,38 +57,38 @@ include CMakeFiles/3drecon.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/3drecon.dir/flags.make
 
-CMakeFiles/3drecon.dir/3dReconstruction.cpp.o: CMakeFiles/3drecon.dir/flags.make
-CMakeFiles/3drecon.dir/3dReconstruction.cpp.o: ../3dReconstruction.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/3drecon.dir/3dReconstruction.cpp.o"
-	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/3drecon.dir/3dReconstruction.cpp.o -c /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/3dReconstruction.cpp
+CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o: CMakeFiles/3drecon.dir/flags.make
+CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o: ../src/3dReconstruction.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o"
+	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o -c /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/src/3dReconstruction.cpp
 
-CMakeFiles/3drecon.dir/3dReconstruction.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/3drecon.dir/3dReconstruction.cpp.i"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/3dReconstruction.cpp > CMakeFiles/3drecon.dir/3dReconstruction.cpp.i
+CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.i"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/src/3dReconstruction.cpp > CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.i
 
-CMakeFiles/3drecon.dir/3dReconstruction.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/3drecon.dir/3dReconstruction.cpp.s"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/3dReconstruction.cpp -o CMakeFiles/3drecon.dir/3dReconstruction.cpp.s
+CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.s"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/src/3dReconstruction.cpp -o CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.s
 
-CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.requires:
+CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.requires:
 
-.PHONY : CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.requires
+.PHONY : CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.requires
 
-CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.provides: CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.requires
-	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.provides.build
-.PHONY : CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.provides
+CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.provides: CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.requires
+	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.provides.build
+.PHONY : CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.provides
 
-CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.provides.build: CMakeFiles/3drecon.dir/3dReconstruction.cpp.o
+CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.provides.build: CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o
 
 
 # Object files for target 3drecon
 3drecon_OBJECTS = \
-"CMakeFiles/3drecon.dir/3dReconstruction.cpp.o"
+"CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o"
 
 # External object files for target 3drecon
 3drecon_EXTERNAL_OBJECTS =
 
-3drecon: CMakeFiles/3drecon.dir/3dReconstruction.cpp.o
+3drecon: CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o
 3drecon: CMakeFiles/3drecon.dir/build.make
 3drecon: /usr/lib/x86_64-linux-gnu/libboost_system.so
 3drecon: /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
@@ -417,7 +417,7 @@ CMakeFiles/3drecon.dir/build: 3drecon
 
 .PHONY : CMakeFiles/3drecon.dir/build
 
-CMakeFiles/3drecon.dir/requires: CMakeFiles/3drecon.dir/3dReconstruction.cpp.o.requires
+CMakeFiles/3drecon.dir/requires: CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.requires
 
 .PHONY : CMakeFiles/3drecon.dir/requires
 

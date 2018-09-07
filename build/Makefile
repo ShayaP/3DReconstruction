@@ -188,32 +188,32 @@ bundle_varying_nonlinlsq/fast:
 	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build
 .PHONY : bundle_varying_nonlinlsq/fast
 
-3dReconstruction.o: 3dReconstruction.cpp.o
+src/3dReconstruction.o: src/3dReconstruction.cpp.o
 
-.PHONY : 3dReconstruction.o
+.PHONY : src/3dReconstruction.o
 
 # target to build an object file
-3dReconstruction.cpp.o:
-	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/3dReconstruction.cpp.o
-.PHONY : 3dReconstruction.cpp.o
+src/3dReconstruction.cpp.o:
+	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o
+.PHONY : src/3dReconstruction.cpp.o
 
-3dReconstruction.i: 3dReconstruction.cpp.i
+src/3dReconstruction.i: src/3dReconstruction.cpp.i
 
-.PHONY : 3dReconstruction.i
+.PHONY : src/3dReconstruction.i
 
 # target to preprocess a source file
-3dReconstruction.cpp.i:
-	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/3dReconstruction.cpp.i
-.PHONY : 3dReconstruction.cpp.i
+src/3dReconstruction.cpp.i:
+	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.i
+.PHONY : src/3dReconstruction.cpp.i
 
-3dReconstruction.s: 3dReconstruction.cpp.s
+src/3dReconstruction.s: src/3dReconstruction.cpp.s
 
-.PHONY : 3dReconstruction.s
+.PHONY : src/3dReconstruction.s
 
 # target to generate assembly for a file
-3dReconstruction.cpp.s:
-	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/3dReconstruction.cpp.s
-.PHONY : 3dReconstruction.cpp.s
+src/3dReconstruction.cpp.s:
+	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.s
+.PHONY : src/3dReconstruction.cpp.s
 
 # Help Target
 help:
@@ -229,9 +229,9 @@ help:
 	@echo "... bundle_common"
 	@echo "... bundle_varying"
 	@echo "... bundle_varying_nonlinlsq"
-	@echo "... 3dReconstruction.o"
-	@echo "... 3dReconstruction.i"
-	@echo "... 3dReconstruction.s"
+	@echo "... src/3dReconstruction.o"
+	@echo "... src/3dReconstruction.i"
+	@echo "... src/3dReconstruction.s"
 .PHONY : help
 
 

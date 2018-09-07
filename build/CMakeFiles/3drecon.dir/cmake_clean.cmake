@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/3drecon.dir/3dReconstruction.cpp.o"
+  "CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o"
   "3drecon.pdb"
   "3drecon"
 )

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 cmake_policy(SET CMP0015 NEW)
 
 project(myproject)
-add_executable(3drecon 3dReconstruction.hpp 3dReconstruction.cpp CameraCalib.hpp)
+add_executable(3drecon src/3dReconstruction.hpp src/3dReconstruction.cpp src/CameraCalib.hpp)
 set(SSBA_LIBRARY_DIR "${CMAKE_SOURCE_DIR}/SSBA" CACHE PATH "Directory to find SSBA libs")
 
 find_package(PCL 1.7.2 REQUIRED)
