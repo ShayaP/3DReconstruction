@@ -25,6 +25,11 @@ int main(int argc, char** argv) {
 	map<int, Matx34d> all_pmats;
 	map<pair<int, int>, vector<KeyPoint>> all_good_keypoints;
 	map<pair<int, int>, vector<DMatch>> all_matches;
+	list<pair<int,pair<int,int>>> percent_matches;
+	set<int> done_views;
+	set<int> good_views;
+
+	int first_view = 0, second_view = 0;
 
 	//boolean for extra debug info.
 	bool show;
@@ -57,19 +62,22 @@ int main(int argc, char** argv) {
 		CameraCalib cc("../src/calibInfo.yml", K, distanceCoeffs);
 		show = false;
 	}
-
 	//process the images and save them in their data structures
 	processImages(images, imagesColored, argv[1], show);
 	all_keypoints.resize(images.size(), vector<KeyPoint>());
 	all_descriptors.resize(images.size(), Mat());
 
+	for (int i = 0; i < images.size(); ++i) {
+		findFeatures(all_keypoints, all_descriptors, images[i], i);
+	}
+	cout << "done detecting and computing features" << endl;
+
 	//detect maching keypoints for different images.
 	for (int i = 0; i < images.size() - 1; ++i) {
 		for (int j = i + 1; j < images.size(); ++j) {
-			bool matches_res = computeMatches(images[i], images[j], all_descriptors[i],
-				all_descriptors[j], all_keypoints[i], all_keypoints[j],
-				all_matches[make_pair(i, j)], all_good_keypoints[make_pair(i, j)],
-				show);
+			bool matches_res = computeMatches(i, j, images[i], images[j], all_descriptors[i], 
+				all_descriptors[j], all_keypoints[i], all_keypoints[j], all_matches[make_pair(i, j)],
+				all_good_keypoints[make_pair(i, j)], show);
 			if (matches_res) {
 				cout << "successful matching with image: [" << i << ", " << j << "]" << endl;
 				//cout << "current cloud size: " << all_points.size() << "\n\n" << endl;
@@ -78,108 +86,107 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
+
+	sortMatchesFromHomography(all_matches, all_keypoints, percent_matches, show);
 	cout << "\nStarting SFM from the matches......" << endl;
-	//compute sfm with the given matches.
-	for (int i = 0; i < images.size() - 1; ++i) {
-		for (int j = i + 1; j < images.size(); ++j) {
-			bool sfm_res = computeSFM(all_keypoints[i], all_keypoints[j], 
-				all_matches, K, distanceCoeffs, all_good_keypoints[make_pair(i, j)],
-				all_good_keypoints[make_pair(i, j)], global_pcloud, all_pmats,
-				i, j, images.size(), show);
-			if (sfm_res) {
-				cout << "successful sfm with image: [" << i << ", " << j << "]" << endl;
-				//cout << "current cloud size: " << all_points.size() << "\n\n" << endl;
-			} else {
-				cout << "failed sfm with image: [" << i << ", " << j << "]\n\n" << endl;
-			}
+	for (auto it = percent_matches.begin(); it != percent_matches.end(); ++it) {
+		int i = it->second.first;
+		int j = it->second.second;
+		first_view = i;
+		second_view = j;
+		cout << "image [" << i << ", " << j << "] with " << it->first << "%" << endl;
+		bool sfm_res = computeSFM(all_keypoints[i], all_keypoints[j], 
+			all_matches, K, distanceCoeffs, all_good_keypoints[make_pair(i, j)],
+			all_good_keypoints[make_pair(i, j)], global_pcloud, all_pmats,
+			i, j, images.size(), show);
+		if (sfm_res) {
+			cout << "successful sfm with image: [" << i << ", " << j << "]" << endl;
+		} else {
+			cout << "failed sfm with image: [" << i << ", " << j << "]\n\n" << endl;
 		}
 	}
 	cout << "\n...after sfm found: " << global_pcloud.size() << " points.\n" << endl;
 	vector<Vec3b> RGBCloud;
-	getPointRGB(global_pcloud, RGBCloud, imagesColored, all_keypoints, images.size());
-	if (RGBCloud.size() != global_pcloud.size()) {
-		cout << "error: color values are not the same size as the points" << endl;
-		return -1;
-	}
+	// getPointRGB(global_pcloud, RGBCloud, imagesColored, all_keypoints, images.size());
+	// if (RGBCloud.size() != global_pcloud.size()) {
+	// 	cout << "error: color values are not the same size as the points" << endl;
+	// 	return -1;
+	// }
 
-	// //convert the found cloudpoints into points and colors and display them using PCL.
-	displayCloud(global_pcloud, RGBCloud, all_points);
-	cout << "\n -- Starting Bundle Adjustment -- \n" << endl;
-	Mat cam_matrix = K;
-	adjustBundle(global_pcloud, cam_matrix, all_keypoints, all_pmats, show);
-	cout << "...finished bundle adjustment" << endl;
-	cout << "global_pcloud size 1: " << global_pcloud.size() << endl;
-	K = cam_matrix;
+	// // //convert the found cloudpoints into points and colors and display them using PCL.
+	// displayCloud(global_pcloud, RGBCloud, all_points);
+	// cout << "\n -- Starting Bundle Adjustment -- \n" << endl;
+	// Mat cam_matrix = K;
+	// adjustBundle(global_pcloud, cam_matrix, all_keypoints, all_pmats, show);
+	// cout << "...finished bundle adjustment" << endl;
+	// K = cam_matrix;
 
-	set<int> done_views;
-	set<int> good_views;
-	int first_view = 0; 
-	int second_view = 1;
+	// Matx34d P = all_pmats[second_view];
+	// Mat_<double> t = (Mat_<double>(1, 3) << P(0, 3), P(1, 3), P(2, 3));
+	// Mat_<double> R = (cv::Mat_<double>(3,3) << P(0,0), P(0,1), P(0,2), 
+	// 										P(1,0), P(1,1), P(1,2), 
+	// 										P(2,0), P(2,1), P(2,2));
+	// Mat_<double> rvec(1, 3);
+	// Rodrigues(R, rvec);
+	// done_views.insert(first_view);
+	// done_views.insert(second_view);
+	// good_views.insert(first_view);
+	// good_views.insert(second_view);
 
-	Matx34d P = all_pmats[second_view];
-	Mat_<double> t = (Mat_<double>(1, 3) << P(0, 3), P(1, 3), P(2, 3));
-	Mat_<double> R = (cv::Mat_<double>(3,3) << P(0,0), P(0,1), P(0,2), 
-											P(1,0), P(1,1), P(1,2), 
-											P(2,0), P(2,1), P(2,2));
-	Mat_<double> rvec(1, 3);
-	Rodrigues(R, rvec);
-	done_views.insert(first_view);
-	done_views.insert(second_view);
-	good_views.insert(first_view);
-	good_views.insert(second_view);
-
-	while(done_views.size() != images.size()) {
-		unsigned int max_2d3d_view = -1, max_2d3d_count = 0;
-		vector<Point3f> max_3d; 
-		vector<Point2f> max_2d;
-		for (int i = 0; i < images.size(); ++i) {
-			if (done_views.find(i) != done_views.end()) continue;
-			vector<Point3f> tmp3d; 
-			vector<Point2f> tmp2d;
-			Find2D3DCorrespondences(i, tmp3d, tmp2d, global_pcloud, good_views, all_matches,
-				all_keypoints);
-			if (tmp3d.size() > max_2d3d_count) {
-				max_2d3d_count = tmp3d.size();
-				max_2d3d_view = i;
-				max_3d = tmp3d;
-				max_2d = tmp2d;
-			}
-		}
-		int i = max_2d3d_view;
-		done_views.insert(i);
-		bool good_poseEstimation = estimatePose(i, rvec, t, R, max_3d, max_2d, K, 
-			distanceCoeffs);
-		if (!good_poseEstimation) {
-			continue;
-		}
-		all_pmats[i] = Matx34d (R(0,0),R(0,1),R(0,2),t(0),
-								R(1,0),R(1,1),R(1,2),t(1),
-								R(2,0),R(2,1),R(2,2),t(2));
-		for (auto done_view = good_views.begin(); done_view != good_views.end(); ++done_view) {
-			int view = *done_view;
-			if (view == i) continue;
-			vector<CloudPoint> new_triangulated;
-			vector<int> add_to_cloud;
-			vector<KeyPoint> correspondingImg1Pt;
-			Matx34d P1 = all_pmats[view];
-			Matx34d P2 = all_pmats[i];
-			bool good_triangulation = triangulateBetweenViews(P1, P2, new_triangulated,
-				all_matches, all_good_keypoints[make_pair(view, i)], all_good_keypoints[make_pair(view, i)],
-				K, distanceCoeffs, correspondingImg1Pt, add_to_cloud, show, global_pcloud,
-				images.size(), view, i);
-			if (!good_triangulation) continue;
-			for (int j = 0; j < add_to_cloud.size(); ++j) {
-				if (add_to_cloud[j] == 1) {
-					global_pcloud.push_back(new_triangulated[j]);
-				}
-			}
-		}
-		cout << "global_pcloud size 2: " << global_pcloud.size() << endl;
-		good_views.insert(i);
-		Mat cam_matrix = K;
-		adjustBundle(global_pcloud, cam_matrix, all_keypoints, all_pmats, show);
-		cout << "global_pcloud size 3: " << global_pcloud.size() << endl;
-	}
+	// while(done_views.size() != images.size()) {
+	// 	// cout << "inside while loop" << endl;
+	// 	unsigned int max_2d3d_view = -1, max_2d3d_count = 0;
+	// 	vector<Point3f> max_3d; 
+	// 	vector<Point2f> max_2d;
+	// 	for (int i = 0; i < images.size(); ++i) {
+	// 		if (done_views.find(i) != done_views.end()) continue;
+	// 		vector<Point3f> tmp3d; 
+	// 		vector<Point2f> tmp2d;
+	// 		Find2D3DCorrespondences(i, tmp3d, tmp2d, global_pcloud, good_views, all_matches,
+	// 			all_keypoints);
+	// 		if (tmp3d.size() > max_2d3d_count) {
+	// 			max_2d3d_count = tmp3d.size();
+	// 			max_2d3d_view = i;
+	// 			max_3d = tmp3d;
+	// 			max_2d = tmp2d;
+	// 		}
+	// 	}
+	// 	int i = max_2d3d_view;
+	// 	done_views.insert(i);
+	// 	bool good_poseEstimation = estimatePose(i, rvec, t, R, max_3d, max_2d, K, 
+	// 		distanceCoeffs);
+	// 	if (!good_poseEstimation) {
+	// 		continue;
+	// 	}
+	// 	all_pmats[i] = Matx34d (R(0,0),R(0,1),R(0,2),t(0),
+	// 							R(1,0),R(1,1),R(1,2),t(1),
+	// 							R(2,0),R(2,1),R(2,2),t(2));
+	// 	for (auto done_view = good_views.begin(); done_view != good_views.end(); ++done_view) {
+	// 		int view = *done_view;
+	// 		if (view == i) continue;
+	// 		vector<CloudPoint> new_triangulated;
+	// 		vector<int> add_to_cloud;
+	// 		vector<KeyPoint> correspondingImg1Pt;
+	// 		Matx34d P1 = all_pmats[view];
+	// 		Matx34d P2 = all_pmats[i];
+	// 		bool good_triangulation = triangulateBetweenViews(P1, P2, new_triangulated,
+	// 			all_matches, all_good_keypoints[make_pair(i, view)], all_good_keypoints[make_pair(i, view)],
+	// 			K, distanceCoeffs, correspondingImg1Pt, add_to_cloud, show, global_pcloud,
+	// 			images.size(), i, view);
+	// 		if (!good_triangulation) {
+	// 			cout << "err: bad triangulation" << endl;
+	// 			continue;	
+	// 		} 
+	// 		for (int j = 0; j < add_to_cloud.size(); ++j) {
+	// 			if (add_to_cloud[j] == 1) {
+	// 				global_pcloud.push_back(new_triangulated[j]);
+	// 			}
+	// 		}
+	// 	}
+	// 	good_views.insert(i);
+	// 	Mat cam_matrix = K;
+	// 	adjustBundle(global_pcloud, cam_matrix, all_keypoints, all_pmats, show);
+	// }
 
 
 	//find the RGB colors for the points that were found.
@@ -206,10 +213,11 @@ bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<doubl
 	vector<int> inliers;
 	double min, max;
 	minMaxIdx(imgPoints, &min, &max);
-	solvePnPRansac(cloud, imgPoints, K, distanceCoeffs,	rvec, t, true, 
-		1000, 0.006 * max, 0.99, inliers, CV_EPNP);
+	solvePnPRansac(cloud, imgPoints, K, distanceCoeffs,	rvec, t, false, 
+		1000, 0.06 * max, 0.99, inliers, CV_P3P);
 	vector<Point2f> projected3D;
 	projectPoints(cloud, rvec, t, K, distanceCoeffs, projected3D);
+	cout << "inliers size: " << inliers.size() << endl;
 	if (inliers.size() == 0) {
 		for (int i = 0; i < projected3D.size(); ++i) {
 			if (norm(projected3D[i] - imgPoints[i]) < 10.0) {
@@ -248,7 +256,9 @@ void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud,
 	vector<int> cloud_status(global_pcloud.size(), 0);
 	for (auto done_view = good_views.begin(); done_view != good_views.end(); ++done_view) {
 		int old_view = *done_view;
-		vector<DMatch> matches = all_matches[make_pair(old_view, curr_view)];
+		// cout << "curr_view " << curr_view << endl;
+		// cout << "old_view " << old_view << endl;
+		vector<DMatch> matches = all_matches[make_pair(curr_view, old_view)];
 		for (int match = 0; match < matches.size(); ++match) {
 			int old_index = matches[match].queryIdx;
 			for (int point = 0; point < global_pcloud.size(); ++point) {
@@ -497,8 +507,9 @@ void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
 	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
 	vector<KeyPoint>& kpts_good1, vector<KeyPoint>& kpts_good2,
-	vector<CloudPoint>& global_pcloud,	map<int, Matx34d>& all_pmats,
+	vector<CloudPoint>& global_pcloud, map<int, Matx34d>& all_pmats, 
 	int idx1, int idx2, int image_size, bool show) {
+
 	cout << "\nSFM with images: [" << idx1 << ", " << idx2 << "]" << endl;
 
 	vector<KeyPoint> pts1_temp, pts2_temp;
@@ -510,120 +521,148 @@ bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2,
 		points1.push_back(pts1_temp[i].pt);
 		points2.push_back(pts2_temp[i].pt);
 	}
-	double min, max;
-	minMaxIdx(points1, &min, &max);
-	//find the fundamnetal matrix
-	Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99);
 
-	//compute the essential matrix.
-	Mat_<double> E = K.t() * F * K;
-	if (show) {
-		cout << "E: \n" << endl;
-		cout << E << "\n" << endl;
-		cout << "F: \n" << endl;
-		cout << F << "\n" << endl;
-		cout << "K: \n" << endl;
-		cout << K << "\n" << endl;
-	}
-	Mat_<double> R1, R2, t1;
-	Mat u, vt, w;
+	//	TODO old method of recovering pose. delete if useless
 
-	//decompose the essential matrix
-	bool decomp_res = DecomposeEssentialMat(E, R1, R2, t1, show);
+	// double min, max;
+	// minMaxIdx(points1, &min, &max);
+	// //find the fundamnetal matrix
+	// Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 0.006 * max, 0.99);
 
-	//check if the decomposition was successful.
-	if (!decomp_res) {
-		return false;
-	}
-	if (determinant(R1) + 1.0 < 1e-09) {
-		E = -E;
-		DecomposeEssentialMat(E, R1, R2, t1, show);
-	}
-	if (!checkRotationMat(R1)) {
-		cout << "Rotation Matrix is not correct" << endl;
-		return false;
-	}
-	if (determinant(E) > 1e-05) {
-		cout << "Essential Matrix determinant must be 0, but was: " << endl;
-		cout << determinant(E) << endl;
-		return false;
-	}
-	cout << "decomposition was successful" << endl;
+	// //compute the essential matrix.
+	// Mat_<double> E = K.t() * F * K;
+	// cout << "old e: \n" << E << endl;
+	// if (show) {
+	// 	cout << "E: \n" << endl;
+	// 	cout << E << "\n" << endl;
+	// 	cout << "F: \n" << endl;
+	// 	cout << F << "\n" << endl;
+	// 	cout << "K: \n" << endl;
+	// 	cout << K << "\n" << endl;
+	// }
+	// Mat_<double> R1, R2, t1;
+	// Mat u, vt, w;
 
-	//now we find our camera matricies P and P1.
-	//we assume that P = [I|0]
-	cout << "\n<================== Searching for P2 =============>\n" << endl;
-	Matx34d P1( 1, 0, 0, 0,
-				0, 1, 0, 0, 
-				0, 0, 1, 0);
-	all_pmats[0] = P1;
-	Matx34d P2;
-	//now test to see which of the 4 P2s are good.
-	bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, kpts_good1, 
-		kpts_good2, R1 , R2, t1, show);
-	if (!foundCameraMat) {
-		cout << "p2 was not found successfully" << endl;
-		return false;
-	} else {
-		//store the camera matrices in the global data structure.
-		//all_pmats[idx1] = P1;
-		all_pmats[idx2] = P2;
-		cout << "p2 found successfully" << endl;
+	// //decompose the essential matrix
+	// bool decomp_res = DecomposeEssentialMat(E, R1, R2, t1, show);
 
-		//triangulate the points and create point cloud.
-		vector<CloudPoint> tri_pts;
-		vector<int> add_to_cloud;
-		vector<KeyPoint> correspondingImg1Pt;
+	// //check if the decomposition was successful.
+	// if (!decomp_res) {
+	// 	return false;
+	// }
+	// if (determinant(R1) + 1.0 < 1e-09) {
+	// 	E = -E;
+	// 	DecomposeEssentialMat(E, R1, R2, t1, show);
+	// }
+	// if (!checkRotationMat(R1)) {
+	// 	cout << "Rotation Matrix is not correct" << endl;
+	// 	return false;
+	// }
+	// if (determinant(E) > 1e-05) {
+	// 	cout << "Essential Matrix determinant must be 0, but was: " << endl;
+	// 	cout << determinant(E) << endl;
+	// 	return false;
+	// }
+	// cout << "decomposition was successful" << endl;
 
-		bool tri_res = triangulateBetweenViews(P1, P2, tri_pts, all_matches, kpts_good1, kpts_good2,
-			K, distanceCoeffs, correspondingImg1Pt, add_to_cloud, show, global_pcloud,
-			image_size, idx1, idx2);
-		if (tri_res && countNonZero(add_to_cloud) >= 10) {
-			cout << "before triangulation: " << global_pcloud.size() << endl;
-			for (int j = 0; j < add_to_cloud.size(); ++j) {
-				if (add_to_cloud[j] == 1) {
-					global_pcloud.push_back(tri_pts[j]);
-				}
+	// //now we find our camera matricies P and P1.
+	// //we assume that P = [I|0]
+	// cout << "\n<================== Searching for P2 =============>\n" << endl;
+	// Matx34d P1( 1, 0, 0, 0,
+	// 			0, 1, 0, 0, 
+	// 			0, 0, 1, 0);
+	// //all_pmats[0] = P1;
+	// Matx34d P2( 1, 0, 0, 0,
+	// 			0, 1, 0, 0, 
+	// 			0, 0, 1, 0);
+	// //now test to see which of the 4 P2s are good.
+	// bool foundCameraMat = findP2Matrix(P1, P2, K, distanceCoeffs, kpts_good1, 
+	// 	kpts_good2, R1 , R2, t1, show);
+	// if (!foundCameraMat) {
+	// 	cout << "p2 was not found successfully" << endl;
+	// 	return false;
+	// } else {
+	// 	//store the camera matrices in the global data structure.
+	// 	all_pmats[idx1] = P1;
+	// 	all_pmats[idx2] = P2;
+	// 	cout << "olf P: \n" << P2 << endl;
+	// 	cout << "p2 found successfully" << endl;
+
+	// 	//triangulate the points and create point cloud.
+	// 	vector<CloudPoint> tri_pts;
+	// 	vector<int> add_to_cloud;
+	// 	vector<KeyPoint> correspondingImg1Pt;
+
+	// 	bool tri_res = triangulateBetweenViews(P1, P2, tri_pts, all_matches, kpts_good1, kpts_good2,
+	// 		K, distanceCoeffs, correspondingImg1Pt, add_to_cloud, show, global_pcloud,
+	// 		image_size, idx1, idx2);
+	// 	if (tri_res && countNonZero(add_to_cloud) >= 10) {
+	// 		cout << "before triangulation: " << global_pcloud.size() << endl;
+	// 		for (int j = 0; j < add_to_cloud.size(); ++j) {
+	// 			if (add_to_cloud[j] == 1) {
+	// 				global_pcloud.push_back(tri_pts[j]);
+	// 			}
+	// 		}
+	// 		cout << "after triangulation: " << global_pcloud.size() << endl;
+	// 	} else {
+	// 		cout << "triangulation failed or not enough points were added" << endl;
+	// 		return false;
+	// 	}
+	// }
+
+	Mat E, R, t;
+	Mat mask;
+	double f0 = K.at<double>(0, 0);
+	Point2d pp(K.at<double>(0, 2), K.at<double>(1, 2));
+	E = findEssentialMat(points1, points2, f0, pp, CV_RANSAC, 0.999, 1.0, mask);
+	recoverPose(E, points1, points2, R, t, f0, pp, mask);
+	Matx34d P1 = Matx34d::eye();
+	Matx34d P2 = Matx34d(R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), t.at<double>(0),
+                    R.at<double>(1,0), R.at<double>(1,1), R.at<double>(1,2), t.at<double>(1),
+					R.at<double>(2,0), R.at<double>(2,1), R.at<double>(2,2), t.at<double>(2));
+	//triangulate the points and create point cloud.
+	vector<CloudPoint> tri_pts;
+	vector<int> add_to_cloud;
+	vector<KeyPoint> correspondingImg1Pt;
+
+	bool tri_res1 = triangulateBetweenViews(P1, P2, tri_pts, all_matches, kpts_good1, kpts_good2,
+		K, distanceCoeffs, add_to_cloud, correspondingImg1Pt, show, global_pcloud,
+		image_size, idx1, idx2);
+	if (tri_res1 && countNonZero(add_to_cloud) >= 10) {
+		cout << "before triangulation: " << global_pcloud.size() << endl;
+		for (int j = 0; j < add_to_cloud.size(); ++j) {
+			if (add_to_cloud[j] == 1) {
+				global_pcloud.push_back(tri_pts[j]);
 			}
-			cout << "after triangulation: " << global_pcloud.size() << endl;
-		} else {
-			cout << "triangulation failed or not enough points were added" << endl;
-			return false;
+		}
+		cout << "after triangulation: " << global_pcloud.size() << endl;
+	} else {
+		cout << "triangulation failed or not enough points were added" << endl;
+		return false;
+	}
+	//prune the matches based on the inliers.
+	vector<DMatch> new_matches;
+	for (int i = 0; i < mask.rows; ++i) {
+		if (mask.at<uchar>(i)) {
+			new_matches.push_back(matches[i]);
 		}
 	}
+	all_matches[make_pair(idx1, idx2)] = new_matches;
+	cout << "new matches size: " << new_matches.size() << endl;
+	return true;
 }
 
 /**
 * this function computes the keypoints between 2 images, matches them and filters those matches.
 * returns the filtered matches and their corresponding "good" keypoints.
 */
-bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2, 
+bool computeMatches(int idx1, int idx2, Mat& img1, Mat& img2, Mat& desc1, Mat& desc2, 
 	vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, vector<DMatch>& matches, 
 	vector<KeyPoint>& good_keypts, bool show) {
 
-
-	//this is our sift keypoints detector
-	int min_hessian = 400;
-	Ptr<Feature2D> surf = SURF::create(min_hessian);
-	Mat descriptor_img1, descriptor_img2;
-	vector<KeyPoint> keypoint_img1, keypoint_img2;
-	cout << "<================== Begin Matching =============>\n" << endl;
-
-	surf->detect(img1, keypoint_img1);
-	surf->detect(img2, keypoint_img2);
-	surf->compute(img1, keypoint_img1, descriptor_img1);
-	surf->compute(img2, keypoint_img2, descriptor_img2);
-	cout << "features for image 1: " << keypoint_img1.size() << endl;
-	cout << "features for image 2: " << keypoint_img2.size() << endl;
-	cout << "done detecting and computing features" << endl;
-
 	BFMatcher matcher(NORM_L2, true);
 	vector<DMatch> matches_;
-	matcher.match(descriptor_img1, descriptor_img2, matches_);
-	desc1 = descriptor_img1;
-	desc2 = descriptor_img2;
-	kpts1 = keypoint_img1;
-	kpts2 = keypoint_img2;
+	matcher.match(desc1, desc2, matches_);
 	matches = matches_;
 
 
@@ -643,7 +682,7 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 		}
 
 		if (existing_trainIdx.find(matches_[i].trainIdx) == existing_trainIdx.end() && 
-			matches_[i].trainIdx >= 0 && matches_[i].trainIdx < (int)(keypoint_img2.size())) {
+			matches_[i].trainIdx >= 0 && matches_[i].trainIdx < (int)(kpts2.size())) {
 			good_matches.push_back(matches_[i]);
 			existing_trainIdx.insert(matches_[i].trainIdx);
 		}
@@ -654,7 +693,7 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 
 	// now we allign the matched points.
 	vector<KeyPoint> pts1_temp, pts2_temp;
-	allignPoints(keypoint_img1, keypoint_img2, good_matches, pts1_temp, pts2_temp);
+	allignPoints(kpts1, kpts2, good_matches, pts1_temp, pts2_temp);
 	vector<Point2f> points1, points2;
 	for (unsigned int i = 0; i < good_matches.size(); ++i) {
 		points1.push_back(pts1_temp[i].pt);
@@ -689,12 +728,13 @@ bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2,
 	minMaxIdx(points1, &min, &max);
 	//draw the matches found.
 	Mat img_matches;
-	drawMatches(img1, keypoint_img1, img2, keypoint_img2, good_matches, img_matches,
+	drawMatches(img1, kpts1, img2, kpts2, good_matches, img_matches,
 				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
 	
 	if (show) {
-		imwrite("matches.jpg", img_matches);
+		string name = "matches" + to_string(idx1) + "_" + to_string(idx2) + ".jpg";
+ 		imwrite(name, img_matches);
 		cout << "image saved" << endl;
 	}
 	matches = good_matches;
@@ -1134,16 +1174,72 @@ void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpt
 * output: a vector of points to add to the cloud.
 */
 bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2, 
-	vector<CloudPoint>& tri_pts, map<pair<int, int>, vector<DMatch>> all_matches,
+	vector<CloudPoint>& tri_pts, map<pair<int, int>, vector<DMatch>>& all_matches,
 	const vector<KeyPoint>& pts1_good, const vector<KeyPoint>& pts2_good,
-	const Mat& K, const Mat& distanceCoeffs, 
-	vector<KeyPoint>& correspImg1Pt, vector<int>& add_to_cloud,
-	bool show, vector<CloudPoint>& global_pcloud, int image_size, int idx1, int idx2) {
+	const Mat& K, Mat& distanceCoeffs, vector<int>& add_to_cloud,
+	vector<KeyPoint>& correspondingImg1Pt, bool show, vector<CloudPoint>& global_pcloud, 
+	int image_size, int idx1, int idx2) {
+
+	// const float MIN_REPROJECTION_ERROR = 10.0;
 
 	Mat Kinv = K.inv();
 	vector<DMatch> good_matches = all_matches[make_pair(idx1, idx2)];
+	// vector<KeyPoint> pts1_temp, pts2_temp;
+	// allignPoints(pts1_good, pts2_good, good_matches, pts1_temp, pts2_temp);
+	// vector<Point2f> points1, points2;
+	// for (unsigned int i = 0; i < good_matches.size(); ++i) {
+	// 	points1.push_back(pts1_temp[i].pt);
+	// 	points2.push_back(pts2_temp[i].pt);
+	// }
+	// Mat normilizedPts1, normilizedPts2;
+	// undistortPoints(points1, normilizedPts1, K, Mat());
+	// undistortPoints(points2, normilizedPts2, K, Mat());
+
+	// Mat points3dHomogeneous;
+	// triangulatePoints(P1, P2, normilizedPts1, normilizedPts2, points3dHomogeneous);
+
+	// Mat points3d;
+	// convertPointsFromHomogeneous(points3dHomogeneous.t(), points3d);
+
+	// Mat rvec1;
+	// Rodrigues(P1.get_minor<3, 3>(0, 0), rvec1);
+	// Mat tvec1(P1.get_minor<3, 1>(0, 3).t());
+	// vector<Point2f> projectedFirstImg(points1.size());
+	// projectPoints(points3d, rvec1, tvec1, K, Mat(), projectedFirstImg);
+
+	// Mat rvec2;
+	// Rodrigues(P2.get_minor<3, 3>(0, 0), rvec2);
+	// Mat tvec2(P2.get_minor<3, 1>(0, 3).t());
+	// vector<Point2f> projectedSecondImg(points2.size());
+	// projectPoints(points3d, rvec2, tvec2, K, Mat(), projectedSecondImg);
+
+	// for (unsigned int i = 0; i < points3d.rows; ++i) {
+	// 	if (norm(projectedFirstImg[i] - points1[i]) > MIN_REPROJECTION_ERROR ||
+	// 		norm(projectedSecondImg[i] - points2[i]) > MIN_REPROJECTION_ERROR) {
+	// 		continue;
+	// 	}
+
+	// 	//create a cloud point.
+	// 	CloudPoint cp;
+	// 	Point3d p = Point3d(points3d.at<double>(i, 0),
+	// 		points3d.at<double>(i, 1),
+	// 		points3d.at<double>(i, 2));
+	// 	cp.pt = p;
+	// 	cp.imgpt_for_img = vector<int>(image_size, -1);
+	// 	cp.imgpt_for_img[idx1] = good_matches[i].queryIdx;
+	// 	cp.imgpt_for_img[idx2] = good_matches[i].trainIdx;
+
+	// 	global_pcloud.push_back(cp);
+	// }
+
+	// //add data to global data structures.
+	// all_pmats[idx1] = P1;
+	// all_pmats[idx2] = P2;
+
+	// return true;
+
 	double err = TriangulatePoints(pts1_good, pts2_good, K, Kinv, distanceCoeffs,
-		P1, P2, tri_pts, correspImg1Pt, show);
+		P1, P2, tri_pts, correspondingImg1Pt, show);
 	if (show) {
 		cout << "reprojection error was: " << err << endl;
 		cout << "\ntri_pts size: " << tri_pts.size() << endl;
@@ -1226,5 +1322,56 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	}
 	cout << "add_to_cloud size: " << countNonZero(add_to_cloud) << endl;
 	return true;
+}
+
+void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
+	vector<vector<KeyPoint>>& keypoints, list<pair<int,pair<int,int>>>& percent_matches,
+	bool show) {
+
+	for (auto it = matches.begin(); it != matches.end(); ++it) {
+		if ((*it).second.size() < 100) {
+			percent_matches.push_back(make_pair(100, (*it).first));
+		} else {
+			vector<KeyPoint> keypts1, keypts2;
+			vector<Point2f> pts1, pts2;
+			int idx1 = (*it).first.first;
+			int idx2 = (*it).first.second;
+
+			allignPoints(keypoints[idx1], keypoints[idx2], matches[make_pair(idx1, idx2)],
+				keypts1, keypts2);
+			for (int i = 0; i < keypts1.size(); ++i) {
+				pts1.push_back(keypts1[i].pt);
+				pts2.push_back(keypts2[i].pt);
+			}
+
+			double min,max;
+			minMaxIdx(pts1, &min, &max);
+			vector<uchar> status;
+			Mat H = findHomography(pts1, pts2, status, CV_RANSAC, 0.004 * max);
+			int inliers = countNonZero(status);
+			int percent = (int)(((double)inliers) / ((double)(*it).second.size()) * 100);
+			percent_matches.push_back(make_pair((int)percent, (*it).first));
+			if (show) {
+				cout << "percentage inliers for: " << idx1 << ", " << idx2 << ": " 
+				<< percent <<  endl;
+			}
+		}
+	}
+	percent_matches.sort(sortFromPercentage);
+}
+
+bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b) {
+	return a.first < b.first;
+}
+
+void findFeatures(vector<vector<KeyPoint>>& all_keypoints, vector<Mat>& all_descriptors,
+	Mat& img, int idx) {
+	int min_hessian = 400;
+	Ptr<SURF> detector = SURF::create(min_hessian);
+	vector<KeyPoint> kp;
+	Mat des;
+	detector->detectAndCompute(img, Mat(), kp, des);
+	all_descriptors[idx] = des;
+	all_keypoints[idx] = kp;
 }
 //TODO: implement an autocalibration method for the camera intrinsics.

@@ -47,11 +47,11 @@ double TriangulatePoints(const vector<KeyPoint>& keypoint_img1,
 	vector<CloudPoint>& pointCloud,
 	vector<KeyPoint>& correspondingImg1Pt, bool show);
 bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2, 
-	vector<CloudPoint>& tri_pts, map<pair<int, int>, vector<DMatch>> all_matches,
+	vector<CloudPoint>& tri_pts, map<pair<int, int>, vector<DMatch>>& all_matches,
 	const vector<KeyPoint>& pts1_good, const vector<KeyPoint>& pts2_good,
-	const Mat& K, const Mat& distanceCoeffs, 
-	vector<KeyPoint>& correspImg1Pt, vector<int>& add_to_cloud,
-	bool show, vector<CloudPoint>& global_pcloud, int image_size, int idx1, int idx2);
+	const Mat& K, Mat& distanceCoeffs, vector<int>& add_to_cloud,
+	vector<KeyPoint>& correspondingImg1Pt, bool show, vector<CloudPoint>& global_pcloud, 
+	int image_size, int idx1, int idx2);
 bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 	Mat_<double>& t1, bool show); 
 bool checkRotationMat(Mat_<double>& R1);
@@ -74,13 +74,13 @@ void populatePC(vector<Point3d>& global_pcloud_3d, vector<Vec3b>& RGBPoints,
 void showCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& finalPC);
 void populatePCNoColor(vector<Point3d>& global_pcloud_3d, 
 	const pcl::PointCloud<pcl::PointXYZ>::Ptr& finalPC);
-bool computeMatches(Mat& img1, Mat& img2, Mat& desc1, Mat& desc2, 
+bool computeMatches(int idx1, int idx2, Mat& img1, Mat& img2, Mat& desc1, Mat& desc2, 
 	vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, vector<DMatch>& matches, 
 	vector<KeyPoint>& good_keypts, bool show);
 bool computeSFM(vector<KeyPoint>& kpts1, vector<KeyPoint>& kpts2, 
 	map<pair<int, int>, vector<DMatch>>& all_matches, Mat& K, Mat& distanceCoeffs, 
 	vector<KeyPoint>& kpts_good1, vector<KeyPoint>& kpts_good2,
-	vector<CloudPoint>& global_pcloud,	map<int, Matx34d>& all_pmats,
+	vector<CloudPoint>& global_pcloud, map<int, Matx34d>& all_pmats, 
 	int idx1, int idx2, int image_size, bool show);
 void getPointRGB(vector<CloudPoint>& global_pcloud, vector<Vec3b>& RGBCloud,
 	vector<Mat>& imagesColored, vector<vector<KeyPoint>>& all_keypoints,
@@ -96,5 +96,11 @@ void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud,
 	vector<vector<KeyPoint>>& all_keypoints);
 bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<double>& R,
 	vector<Point3f>& cloud, vector<Point2f>& imgPoints, Mat& K, Mat& distanceCoeffs);
+void sortMatchesFromHomography(map<pair<int, int>, vector<DMatch>>& matches,
+	vector<vector<KeyPoint>>& keypoints, list<pair<int,pair<int,int>>>& percent_matches,
+	bool show);
+bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b);
+void findFeatures(vector<vector<KeyPoint>>& all_keypoints, vector<Mat>& all_descriptors,
+	Mat& img, int idx);
 
 #endif
