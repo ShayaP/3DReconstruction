@@ -33,6 +33,15 @@ struct CloudPoint {
 	double reprojection_error;
 };
 
+
+struct Point3DInMap {
+    // 3D point.
+    cv::Point3f p;
+
+    // A mapping from image index to 2D point index in that image's list of features.
+    std::map<int, int> originatingViews;
+};
+
 //boolean for extra debug info.
 bool show;
 
@@ -48,6 +57,7 @@ vector<vector<KeyPoint>> all_keypoints;
 vector<Point3d> all_points;
 vector<Mat> all_descriptors;
 vector<CloudPoint> global_pcloud;
+vector<Point3DInMap> globalPoints;
 
 map<int, Matx34d> all_pmats;
 map<pair<int, int>, vector<KeyPoint>> all_good_keypoints;
@@ -57,6 +67,12 @@ set<int> good_views;
 
 int first_view = 0, second_view = 0;
 
+///Rotational element in a 3x4 matrix
+const cv::Rect ROT(0, 0, 3, 3);
+
+///Translational element in a 3x4 matrix
+const cv::Rect TRA(3, 0, 1, 3);
+
 //decalre functions:
 void processImages(char* dirName);
 Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2);
@@ -65,7 +81,8 @@ double TriangulatePoints(const vector<KeyPoint>& kpts_good, const Matx34d& P1,
 	const Matx34d& P2, vector<CloudPoint>& pointCloud,	
 	vector<KeyPoint>& correspondingImg1Pt);
 bool triangulateBetweenViews(vector<CloudPoint>& tri_pts, vector<int>& add_to_cloud,
-	vector<KeyPoint>& correspondingImg1Pt, int idx1, int idx2);
+	vector<KeyPoint>& correspondingImg1Pt, const Matx34d& P1, const Matx34d& P2,
+	int idx1, int idx2);
 // bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 // 	Mat_<double>& t1, bool show); 
 bool checkRotationMat(Mat_<double>& R1);
@@ -108,5 +125,8 @@ void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpt
 void KeyPointsToPoints(const vector<KeyPoint>& kps, vector<Point2f>& ps); 
 void triangulate2Views(int first_view, int second_view);
 void flipMatches(const vector<DMatch>& matches, vector<DMatch>& flipedMatches);
+bool estimatePose(vector<Point3f>& points3d, vector<Point2f>& points2d, Matx34d& Pnew);
+void addMoreViewsToReconstruction();
+int get2DMeasurements(const vector<Point3DInMap>& globalPoints);
 
 #endif
