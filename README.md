@@ -27,8 +27,8 @@ Some examples of reconstructions from the res folder:<br/>
 
 1- testPics (contains 3 images of a russian doll):<br/>
 <p align="center">
-  ![russianDoll](https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result1.png)<br/>
-  ![russianDoll](https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result2.png)<br/>
+  <img src="https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result1.png"/><br/>
+  <img src="https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result2.png"/><br/>
 </p>
 
 <p align="center">
