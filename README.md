@@ -1,11 +1,11 @@
 <p align="center">
-  Description<br/>
+  <b>Description</b><br/>
 </p>  
 
 This project recreates a 3d scene given a series of images from a calibrated camera using Structure From Motion techniques. The camera's intrinsics must be included in the calibinfo.yml, otherwise a folder with calibration images must be given for manual calibration. if nothing is provided auto calibration will take place but the intrinsics will only be an estimate.<br/>
 
 <p align="center">
-  Building/Usage<br/>
+  <b>Building/Usage</b><br/>
 </p>
 
 Note: this project requires OpenCV, PCL, and SSBA libraries to build.<br/>                                        
@@ -21,7 +21,7 @@ then either:<br/>
 ./3drecon <image directory> <calibration image path> <1 or 0 for debug info><br/>
 
 <p align="center">
-  Examples<br/>
+  <b>Examples</b><br/>
 </p>
 Some examples of reconstructions from the res folder:<br/>
 
@@ -32,8 +32,8 @@ Some examples of reconstructions from the res folder:<br/>
 </p>
 
 <p align="center">
-  Credits<br/>
+  <b>Credits</b><br/>
 </p>
 
-*Multiple View Geometry by Hartley and Zisserman<br/>
-*Mastering OpenCV with Practical Computer Vision Projects<br/>
+* Multiple View Geometry by Hartley and Zisserman<br/>
+* Mastering OpenCV with Practical Computer Vision Projects<br/>
