@@ -76,44 +76,23 @@ const cv::Rect TRA(3, 0, 1, 3);
 
 //decalre functions:
 void processImages(char* dirName);
-Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2);
-Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2);
-double TriangulatePoints(const vector<KeyPoint>& kpts_good, const Matx34d& P1, 
-	const Matx34d& P2, vector<CloudPoint>& pointCloud,	
-	vector<KeyPoint>& correspondingImg1Pt);
-bool triangulateBetweenViews(vector<CloudPoint>& tri_pts, vector<int>& add_to_cloud,
-	vector<KeyPoint>& correspondingImg1Pt, const Matx34d& P1, const Matx34d& P2,
+bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	vector<Point3DInMap>& cloud, int idx1, int idx2);
-// bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
-// 	Mat_<double>& t1, bool show); 
 bool checkRotationMat(Mat_<double>& R1);
-bool testTriangulation(const vector<CloudPoint>& pointCloud, const Matx34d& P,
-	vector<uchar>& status);
 void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPoints);
-// bool findP2Matrix(Matx34d& P1, Matx34d& P2, const Mat& K, const Mat& distanceCoeffs,
-// 	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
-// 	Mat_<double> R1, Mat_<double> R2, Mat_<double> t1, bool show);
 void useage();
 void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2);
-void showCloudNoColor(const pcl::PointCloud<pcl::PointXYZ>::Ptr& finalPC);
 void getRGBCloudPoint(const vector<CloudPoint>& global_pcloud, vector<Vec3b>& out,
 	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
 	Mat& img1_c, Mat& img2_c);
-void populatePC(vector<Point3d>& global_pcloud_3d, vector<Vec3b>& RGBPoints,
-	const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& finalPC);
 void showCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& finalPC);
-void populatePCNoColor(vector<Point3d>& global_pcloud_3d, 
-	const pcl::PointCloud<pcl::PointXYZ>::Ptr& finalPC);
 bool computeMatches(int idx1, int idx2);
 bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud);
 void getPointRGB(vector<Vec3b>& RGBCloud);
 void displayCloud(vector<Vec3b>& RGBCloud);
 void adjustBundle(Mat& cam_matrix);
-int get2DMeasurements(const vector<CloudPoint>& global_pcloud);
-void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud, 
-	vector<Point2f>& imgPoints);
 void Find2D3DCorrespondences();
 bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<double>& R,
 	vector<Point3f>& cloud, vector<Point2f>& imgPoints);

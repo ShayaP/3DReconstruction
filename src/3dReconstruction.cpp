@@ -69,19 +69,6 @@ int main(int argc, char** argv) {
 	//get the baseline triangulation with 2 views
 	triangulate2Views(first_view, second_view);
 
-	//add more views
-	// Matx34d P = all_pmats[second_view];
-	// Mat_<double> t = (Mat_<double>(1, 3) << P(0, 3), P(1, 3), P(2, 3));
-	// Mat_<double> R = (cv::Mat_<double>(3,3) << P(0,0), P(0,1), P(0,2), 
-	// 										P(1,0), P(1,1), P(1,2), 
-	// 										P(2,0), P(2,1), P(2,2));
-	// Mat_<double> rvec(1, 3);
-	// Rodrigues(R, rvec);
-	// done_views.insert(first_view);
-	// done_views.insert(second_view);
-	// good_views.insert(first_view);
-	// good_views.insert(second_view);
-
 	addMoreViewsToReconstruction();
 
 	vector<Vec3b> RGBCloud;
@@ -101,20 +88,6 @@ void addMoreViewsToReconstruction() {
 	while(done_views.size() != images.size()) {
 		Find2D3DCorrespondences();
 		unsigned int max_2d3d_view = -1, max_2d3d_count = 0;
-		// vector<Point3f> max_3d; 
-		// vector<Point2f> max_2d;
-		// for (int i = 0; i < images.size(); ++i) {
-		// 	if (done_views.find(i) != done_views.end()) continue;
-		// 	vector<Point3f> tmp3d; 
-		// 	vector<Point2f> tmp2d;
-		// 	Find2D3DCorrespondences(i, tmp3d, tmp2d);
-		// 	if (tmp3d.size() > max_2d3d_count) {
-		// 		max_2d3d_count = tmp3d.size();
-		// 		max_2d3d_view = i;
-		// 		max_3d = tmp3d;
-		// 		max_2d = tmp2d;
-		// 	}
-		// }
 		for (const auto& match2D3D : imageCorrespondences) {
 			int matchSize = match2D3D.second.first.size();
 			if (matchSize > max_2d3d_count) {
@@ -162,34 +135,6 @@ void addMoreViewsToReconstruction() {
 			good_views.insert(i);
 
 		}
-
-	// 	all_pmats[i] = Matx34d (R(0,0),R(0,1),R(0,2),t(0),
-	// 							R(1,0),R(1,1),R(1,2),t(1),
-	// 							R(2,0),R(2,1),R(2,2),t(2));
-	// 	for (auto done_view = good_views.begin(); done_view != good_views.end(); ++done_view) {
-	// 		int view = *done_view;
-	// 		cout << "view: " << view << " i: " << i << endl;
-	// 		if (view == i) continue;
-	// 		vector<CloudPoint> new_triangulated;
-	// 		vector<int> add_to_cloud;
-	// 		vector<KeyPoint> correspondingImg1Pt;
-	// 		Matx34d P1 = all_pmats[view];
-	// 		Matx34d P2 = all_pmats[i];
-	// 		bool good_triangulation = triangulateBetweenViews(new_triangulated,
-	// 			add_to_cloud, correspondingImg1Pt, view, i);
-	// 		if (!good_triangulation) {
-	// 			cout << "err: bad triangulation" << endl;
-	// 			continue;	
-	// 		} 
-	// 		for (int j = 0; j < add_to_cloud.size(); ++j) {
-	// 			if (add_to_cloud[j] == 1) {
-	// 				global_pcloud.push_back(new_triangulated[j]);
-	// 			}
-	// 		}
-	// 	}
-	// 	good_views.insert(i);
-	// 	Mat cam_matrix = K;
-	// 	adjustBundle(cam_matrix);
 	}
 }
 
@@ -249,40 +194,6 @@ bool estimatePose(vector<Point3f>& points3d, vector<Point2f>& points2d, Matx34d&
 	rot.copyTo(Mat(3, 4, CV_32FC1, Pnew.val)(ROT));
 	tvec.copyTo(Mat(3, 4, CV_32FC1, Pnew.val)(TRA));
 	return true;
-
-	// if (cloud.size() <= 7 || imgPoints.size() <= 7 || cloud.size() != imgPoints.size()) {
-	// 	cout << "err: not enough points to find pose." << endl;
-	// 	return false;
-	// }
-	// vector<int> inliers;
-	// double min, max;
-	// minMaxIdx(imgPoints, &min, &max);
-	// solvePnPRansac(cloud, imgPoints, K, distanceCoeffs,	rvec, t, false, 
-	// 	1000, 0.06 * max, 0.99, inliers, CV_P3P);
-	// vector<Point2f> projected3D;
-	// projectPoints(cloud, rvec, t, K, distanceCoeffs, projected3D);
-	// cout << "inliers size: " << inliers.size() << endl;
-	// if (inliers.size() == 0) {
-	// 	for (int i = 0; i < projected3D.size(); ++i) {
-	// 		if (norm(projected3D[i] - imgPoints[i]) < 10.0) {
-	// 			inliers.push_back(i);
-	// 		}
-	// 	}
-	// }
-	// if (inliers.size() < (double)(imgPoints.size()) / 5.0) {
-	// 	cout << "err: not enough inliers to find good pose." << endl;
-	// 	return false;
-	// }
-	// if (norm(t) > 200.0) {
-	// 	cout << "err: camera movement is to big. " << endl;
-	// 	return false;
-	// }
-	// Rodrigues(rvec, R);
-	// if (!checkRotationMat(R)) {
-	// 	cout << "err: not a coherent rotation to find good pose." << endl;
-	// 	return false;
-	// }
-	// return true;
 }
 
 /**
@@ -341,33 +252,10 @@ void Find2D3DCorrespondences() {
 		}
 		imageCorrespondences[i] = make_pair(points2d, points3d);
 	}
-
-
-	// cloud.clear();
-	// imgPoints.clear();
-	// vector<int> cloud_status(global_pcloud.size(), 0);
-	// for (auto done_view = good_views.begin(); done_view != good_views.end(); ++done_view) {
-	// 	int old_view = *done_view;
-	// 	vector<DMatch> matches = all_matches[make_pair(curr_view, old_view)];
-	// 	for (int match = 0; match < matches.size(); ++match) {
-	// 		int old_index = matches[match].queryIdx;
-	// 		for (int point = 0; point < global_pcloud.size(); ++point) {
-	// 			if (old_index == global_pcloud[point].imgpt_for_img[old_view]
-	// 				&& cloud_status[point] == 0) {
-	// 				cloud.push_back(global_pcloud[point].pt);
-	// 				imgPoints.push_back(all_keypoints[curr_view][matches[match].trainIdx].pt);
-	// 				cloud_status[point] = 1;
-	// 				break;
-	// 			}
-	// 		}
-	// 	}
-	// }
 }
 
 void adjustBundle(Mat& cam_matrix) {
 	int N = all_pmats.size();
-	// int M = global_pcloud.size();
-	// int K = get2DMeasurements(global_pcloud);
 	int M = globalPoints.size();
 	int K = get2DMeasurements(globalPoints);
 	StdDistortionFunction distortion;
@@ -397,9 +285,6 @@ void adjustBundle(Mat& cam_matrix) {
 	vector<Vector3d > Xs(M);
 	for (int i = 0; i < M; ++i) {
 		int pointId = i;
-		// Xs[i][0] = global_pcloud[i].pt.x;
-		// Xs[i][1] = global_pcloud[i].pt.y;
-		// Xs[i][2] = global_pcloud[i].pt.z;
 		Xs[i][0] = globalPoints[i].p.x;
 		Xs[i][1] = globalPoints[i].p.y;
 		Xs[i][2] = globalPoints[i].p.z;
@@ -436,28 +321,6 @@ void adjustBundle(Mat& cam_matrix) {
 	measurements.reserve(K);
 	correspondingView.reserve(K);
 	correspondingPoint.reserve(K);
-	// for (int i = 0; i < global_pcloud.size(); ++i) {
-	// 	for (int j = 0; j < global_pcloud[i].imgpt_for_img.size(); ++j) {
-	// 		if (global_pcloud[i].imgpt_for_img[j] >= 0) {
-	// 			int view = j;
-	// 			int point = i;
-	// 			Vector3d p;
-	// 			Point cvp = all_keypoints[j][global_pcloud[i].imgpt_for_img[j]].pt;
-	// 			p[0] = cvp.x;
-	// 			p[1] = cvp.y;
-	// 			p[2] = 1.0;
-
-	// 			if (camIdBwdMap.find(view) != camIdBwdMap.end() &&
-	// 				pointIdBwdMap.find(point) != pointIdBwdMap.end()) {
-	// 				// Normalize the measurements to match the unit focal length.
-	// 				scaleVectorIP(1.0/f0, p);
-	// 				measurements.push_back(Vector2d(p[0], p[1]));
-	// 				correspondingView.push_back(camIdBwdMap[view]);
-	// 				correspondingPoint.push_back(pointIdBwdMap[point]);
-	// 			}
-	// 		}
-	// 	}
-	// }
 
 	for (int i = 0; i < globalPoints.size(); ++i) {
 		for (int j = 0; j < globalPoints[i].originatingViews.size(); ++j) {
@@ -520,11 +383,6 @@ void adjustBundle(Mat& cam_matrix) {
 	}
 
 	if (good_adjustment) {
-		// for (int i = 0; i < Xs.size(); ++i) {
-		// 	global_pcloud[i].pt.x = Xs[i][0];
-		// 	global_pcloud[i].pt.y = Xs[i][1];
-		// 	global_pcloud[i].pt.z = Xs[i][2];
-		// }
 		for (int i = 0; i < Xs.size(); ++i) {
 			globalPoints[i].p.x = Xs[i][0];
 			globalPoints[i].p.y = Xs[i][1];
@@ -615,15 +473,6 @@ void getPointRGB(vector<Vec3b>& RGBCloud) {
 	for (int i = 0; i < globalPoints.size(); ++i) {
 		vector<Vec3b> point_colors;
 		for (int j = 0; j < image_size; ++j) {
-			// if (global_pcloud[i].imgpt_for_img[j] != -1) {
-			// 	int pt_idx = global_pcloud[i].imgpt_for_img[j];
-			// 	if (pt_idx >= all_keypoints[j].size()) {
-			// 		cout << "err: index out of bounds while getting point RGB" << endl;
-			// 		continue;
-			// 	}
-			// 	Point p = all_keypoints[j][pt_idx].pt;
-			// 	point_colors.push_back(imagesColored[j].at<Vec3b>(p));
-			// }
 			int pt_idx = globalPoints[i].originatingViews[j];
 			if (pt_idx >= all_keypoints[j].size()) {
 				cout << "err: index out of bounds while getting point RGB" << endl;
@@ -672,26 +521,8 @@ bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud) {
 	all_pmats[idx1] = P1;
 	all_pmats[idx2] = P2;
 
-	//triangulate the points and create point cloud.
-	vector<CloudPoint> tri_pts;
-	vector<int> add_to_cloud;
-	vector<KeyPoint> correspondingImg1Pt;
-
-
 	cout << "before triangulation: " << cloud.size() << endl;
-	bool tri_res = triangulateBetweenViews(tri_pts, add_to_cloud, correspondingImg1Pt,
-		P1, P2, cloud, idx1, idx2);
-		// if (tri_res && countNonZero(add_to_cloud) >= 20) {
-		// 	// for (int j = 0; j < add_to_cloud.size(); ++j) {
-		// 	// 	if (add_to_cloud[j] == 1) {
-		// 	// 		global_pcloud.push_back(tri_pts[j]);
-		// 	// 	}
-		// 	// }
-		// 	cout << "after triangulation: " << globalPoints.size() << endl;
-		// } else {
-		// 	cout << "triangulation failed or not enough points were added" << endl;
-		// 	return false;
-		// }
+	bool tri_res = triangulateBetweenViews(P1, P2, cloud, idx1, idx2);
 	cout << "after triangulation: " << cloud.size() << endl;		
 
 	//prune the matches based on the inliers.
@@ -814,144 +645,6 @@ bool computeMatches(int idx1, int idx2) {
 	return true;
 }
 
-/**
-* This is a helper function for that computes X from AX = B.
-*/
-Mat_<double> LinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2) {
-	Matx43d A(u1.x*P1(2,0)-P1(0,0),	u1.x*P1(2,1)-P1(0,1),		u1.x*P1(2,2)-P1(0,2),		
-			u1.y*P1(2,0)-P1(1,0),	u1.y*P1(2,1)-P1(1,1),		u1.y*P1(2,2)-P1(1,2),		
-			u2.x*P2(2,0)-P2(0,0), u2.x*P2(2,1)-P2(0,1),	u2.x*P2(2,2)-P2(0,2),	
-			u2.y*P2(2,0)-P2(1,0), u2.y*P2(2,1)-P2(1,1),	u2.y*P2(2,2)-P2(1,2));
-	Matx41d B(-(u1.x*P1(2,3)	-P1(0,3)),
-			-(u1.y*P1(2,3)	-P1(1,3)),
-			-(u2.x*P2(2,3)	-P2(0,3)),
-			-(u2.y*P2(2,3) -P2(1,3)));
-
-	Mat_<double> X;
-	solve(A, B, X, DECOMP_SVD);
-
-	return X;
-}
-
-/**
-* This function solves the equation AX = B for the point X.
-*/
-Mat_<double> IterativeLinearLSTriangulation(Point3d u1, Matx34d P1, Point3d u2, Matx34d P2) {
-	int num_iterations = 10;
-	float EPSILON = 0.0001;
-
-	double wi1 = 1;
-	double wi2 = 1;
-	Mat_<double> X(4, 1);
-	Mat_<double> X_ = LinearLSTriangulation(u1, P1, u2, P2);
-	X(0) = X_(0);
-	X(1) = X_(1);
-	X(2) = X_(2);
-	X(3) = 1.0;
-
-
-	for (int i = 0; i < num_iterations; ++i) {
-		//find the weights
-		double weight1 = Mat_<double>(Mat_<double>(P1).row(2)*X)(0);
-		double weight2 = Mat_<double>(Mat_<double>(P2).row(2)*X)(0);
-
-		//if diff is less than epsilon, break.
-		if (fabsf(wi1 - weight1) <= EPSILON && fabsf(wi2 - weight2) <= EPSILON) {
-			break;
-		}
-
-		wi1 = weight1;
-		wi2 = weight2;
-
-		//resolve with new weights.
-		Matx43d A((u1.x*P1(2,0)-P1(0,0))/wi1,		(u1.x*P1(2,1)-P1(0,1))/wi1,			(u1.x*P1(2,2)-P1(0,2))/wi1,		
-				  (u1.y*P1(2,0)-P1(1,0))/wi1,		(u1.y*P1(2,1)-P1(1,1))/wi1,			(u1.y*P1(2,2)-P1(1,2))/wi1,		
-				  (u2.x*P2(2,0)-P2(0,0))/wi2,	(u2.x*P2(2,1)-P2(0,1))/wi2,		(u2.x*P2(2,2)-P2(0,2))/wi2,	
-				  (u2.y*P2(2,0)-P2(1,0))/wi2,	(u2.y*P2(2,1)-P2(1,1))/wi2,		(u2.y*P2(2,2)-P2(1,2))/wi2
-				  );
-		Mat_<double> B = (Mat_<double>(4,1) <<	  -(u1.x*P1(2,3)	-P1(0,3))/wi1,
-												  -(u1.y*P1(2,3)	-P1(1,3))/wi1,
-												  -(u2.x*P2(2,3)	-P2(0,3))/wi2,
-												  -(u2.y*P2(2,3)	-P2(1,3))/wi2);
-
-		solve(A, B, X_, DECOMP_SVD);
-		X(0) = X_(0);
-		X(1) = X_(1);
-		X(2) = X_(2);
-		X(3) = 1.0;
-	}
-	return X;
-}
-
-/**
-* This function computes a point cloud from given key points in the 2 images
-* and given camera matricies.
-*/
-double TriangulatePoints(const vector<KeyPoint>& kpts_good, const Matx34d& P1, 
-	const Matx34d& P2, vector<CloudPoint>& pointCloud,	
-	vector<KeyPoint>& correspondingImg1Pt) {
-
-	if (show) {
-		cout << "starting TriangulatePoints.. " << endl;
-	}
-
-	Mat Kinv = K.inv();
-	vector<double> reprojectionError;
-	int size = kpts_good.size();
-	correspondingImg1Pt.clear();
-
-	Matx44d P2_(P2(0,0),P2(0,1),P2(0,2),P2(0,3),
-				P2(1,0),P2(1,1),P2(1,2),P2(1,3),
-				P2(2,0),P2(2,1),P2(2,2),P2(2,3),
-				0,		0,		0,		1);
-	Matx44d P2inv(P2_.inv());
-
-	Mat_<double> KP2 = K * Mat(P2);
-
-	//triangulate every single feature
-	for (int i = 0; i < size; ++i) {
-		//point from image 1
-		Point2f kp1 = kpts_good[i].pt;
-		Point3d u1(kp1.x, kp1.y, 1.0);
-
-		//point from image 2
-		Point2f kp2 = kpts_good[i].pt;
-		Point3d u2(kp2.x, kp2.y, 1.0);
-
-		Mat_<double> um1 = Kinv * Mat_<double>(u1);
-		Mat_<double> um2 = Kinv * Mat_<double>(u2);
-
-		u1.x = um1(0);
-		u1.y = um1(1);
-		u1.z = um1(2);
-
-		u2.x = um2(0);
-		u2.y = um2(1);
-		u2.z = um2(2);
-
-		//find the estimate from Linear LS Triangulation
-		Mat_<double> X = IterativeLinearLSTriangulation(u1, P1, u2, P2);
-
-		//reproject the point again and find the reprojection error
-		Mat_<double> xPt_img = KP2 * X;
-		Point2f xPt_img_(xPt_img(0)/xPt_img(2), xPt_img(1)/xPt_img(2));
-
-		//calculate the cloud point and find the error
-		double err = norm(xPt_img_ - kp2);
-		reprojectionError.push_back(err);
-		CloudPoint cp;
-		cp.pt = Point3d(X(0), X(1), X(2));
-		cp.reprojection_error = err;
-		pointCloud.push_back(cp);
-		correspondingImg1Pt.push_back(kpts_good[i]);
-	} 
-	Scalar mse = mean(reprojectionError);
-	if (show) {
-		cout << "finished triangulation with: " << mse[0] << " error" << endl;
-	}
-	return mse[0];
-} 
-
 
 /**
 * this method processes the images in a directory and adds them to the list
@@ -1006,40 +699,6 @@ void calibrateFromFile(Mat& K, string fileName) {
 bool checkRotationMat(Mat_<double>& R1) {
 	if (fabsf(determinant(R1)) - 1.0 > 1e-07) {
 		cout << "Rotation Matrix is not valid" << endl;
-		return false;
-	} else {
-		return true;
-	}
-}
-
-/**
-* This function tests to see how many points with a certain Camera P lie
-* infront of the camera. if more than 75% of the points lie infront of the camera,
-* this test is a success.
-*/
-bool testTriangulation(vector<CloudPoint>& pointCloud, const Matx34d& P,
-	vector<uchar>& status) {
-	status.clear();
-	vector<Point3d> pcloud_pt3d;
-	transformCloudPoints(pcloud_pt3d, pointCloud);
-	vector<Point3d> pcloud_pt3d_projected(pcloud_pt3d.size());
-
-	Matx44d P4x4 = Matx44d::eye();
-	for (int i = 0; i < 12; ++i) {
-		P4x4.val[i] = P.val[i];
-	}
-	perspectiveTransform(pcloud_pt3d, pcloud_pt3d_projected, P4x4);
-	status.resize(pointCloud.size(), 0);
-	for (int i = 0; i < pointCloud.size(); ++i) {
-		status[i] = (pcloud_pt3d_projected[i].z > 0) ? 1 : 0;
-	}
-	int count = countNonZero(status);
-
-	double percentage = ((double)count / (double)pointCloud.size());
-	if (show) {
-		cout << "percentage of points infront of camera: " << percentage << endl;
-	}
-	if (percentage <  0.75) {
 		return false;
 	} else {
 		return true;
@@ -1109,8 +768,7 @@ void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpt
 * parameters: takes in the 2 camera matrices, thier keypoints and their matches.
 * output: a vector of points to add to the cloud.
 */
-bool triangulateBetweenViews(vector<CloudPoint>& tri_pts, vector<int>& add_to_cloud,
-	vector<KeyPoint>& correspondingImg1Pt, const Matx34d& P1, const Matx34d& P2,
+bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	vector<Point3DInMap>& cloud, int idx1, int idx2) {
 
 	const float MIN_REPROJECTION_ERROR = 10.0;
@@ -1164,97 +822,6 @@ bool triangulateBetweenViews(vector<CloudPoint>& tri_pts, vector<int>& add_to_cl
 		cloud.push_back(p);
 	}
 	return true;
-
-	// Mat Kinv = K.inv();
- // 	vector<DMatch> good_matches = all_matches[make_pair(idx1, idx2)];
- // 	Matx34d P1 = all_pmats[idx1];
- // 	Matx34d P2 = all_pmats[idx2];
- // 	vector<KeyPoint> kpts_good = all_good_keypoints[make_pair(idx1, idx2)];
- // 	int image_size = images.size();
-	
-	// double err = TriangulatePoints(kpts_good, P1, P2, tri_pts, correspondingImg1Pt);
-	// if (show) {
-	// 	cout << "reprojection error was: " << err << endl;
-	// 	cout << "\ntri_pts size: " << tri_pts.size() << endl;
-	// }
-	// vector<uchar> trig_status;
-	// if (!testTriangulation(tri_pts, P1, trig_status) 
-	// 	|| !testTriangulation(tri_pts, P2, trig_status)) {
-	// 	cout << "err: triangulation failed" << endl;
-	// 	return false;
-	// }
-
-	// vector<double> reproj_error;
-	// for (int i = 0; i < tri_pts.size(); ++i) {
-	// 	reproj_error.push_back(tri_pts[i].reprojection_error);
-	// }
-	// sort(reproj_error.begin(), reproj_error.end());
-	// double err_cutoff = reproj_error[4 * reproj_error.size() / 5] * 2.4;
-
-	// vector<CloudPoint> new_triangulated_filtered;
-	// vector<DMatch> new_matches;
-	// for (int i = 0; i < tri_pts.size(); ++i) {
-	// 	if (trig_status[i] == 0) {
-	// 		continue;
-	// 	}
-	// 	if (tri_pts[i].reprojection_error > 16.0) {
-	// 		continue;
-	// 	}
-	// 	if (tri_pts[i].reprojection_error < 4.0 ||
-	// 		tri_pts[i].reprojection_error < err_cutoff) {
-	// 		new_triangulated_filtered.push_back(tri_pts[i]);
-	// 		new_matches.push_back(good_matches[i]);
-	// 	} else {
-	// 		continue;
-	// 	}
-	// }
-
-	// if (show) {
-	// 	cout << "# points that are triangulated: " << new_triangulated_filtered.size() << endl;
-	// }
-	// if (new_triangulated_filtered.size() <= 0) {
-	// 	cout << "err: could not find enough points" << endl;
-	// 	return false;
-	// }
-	// tri_pts = new_triangulated_filtered;
-	// good_matches = new_matches;
-	// add_to_cloud.clear();
-	// add_to_cloud.resize(tri_pts.size(), 1);
-	// int found_in_other_views = 0;
-	// for (int j = 0; j < tri_pts.size(); ++j) {
-
-	// 	tri_pts[j].imgpt_for_img = vector<int>(image_size, -1);
-	// 	tri_pts[j].imgpt_for_img[idx1] = good_matches[j].queryIdx;
-	// 	tri_pts[j].imgpt_for_img[idx2] = good_matches[j].trainIdx;
-	// 	bool found = false;
-	// 	for (unsigned int image = 0; image < image_size; ++image) {
-	// 		if (image != idx1) {
-	// 			//get the matches of all other points.
-	// 			vector<DMatch> submatches = all_matches[make_pair(image, idx2)];
-	// 			for (int k = 0; k < submatches.size(); ++k) {
-	// 				if (submatches[k].trainIdx == good_matches[j].trainIdx &&
-	// 					!found) {
-	// 					for (unsigned int pt3d = 0; pt3d < global_pcloud.size(); ++pt3d) {
-	// 						if (global_pcloud[pt3d].imgpt_for_img[image] == submatches[k].queryIdx) {
-	// 							global_pcloud[pt3d].imgpt_for_img[idx1] = good_matches[j].trainIdx;
-	// 							global_pcloud[pt3d].imgpt_for_img[idx2] = good_matches[j].queryIdx;
-	// 							found = true;
-	// 							add_to_cloud[j] = 0;
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-
-	// 	if (found) {
-	// 		found_in_other_views++;
-	// 	} else {
-	// 		add_to_cloud[j] = 1;		
-	// 	}
-	// }
-	// cout << "add_to_cloud size: " << countNonZero(add_to_cloud) << endl;
-	// return true;
 }
 
 void sortMatchesFromHomography(list<pair<int, pair<int,int>>>& percent_matches) {
