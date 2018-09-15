@@ -17,8 +17,14 @@ then either:
 ./3drecon <image directory> <1 for debug info>
 ./3drecon <image directory> <calibration image path> <1 or 0 for debug info>
 
+											Examples
+Some examples of reconstructions from the res folder:
+
+1- testPics (contains 3 images of a russian doll):
+![russianDoll](https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result1.png)
+![russianDoll](https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result2.png)
                                             Credit
 
-Multiple View Geometry by Hartley and Zisserman
+Multiple View Geometry by Hartley and Zisserman<br/>
 Mastering OpenCV with Practical Computer Vision Projects
 
