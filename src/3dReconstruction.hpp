@@ -62,6 +62,7 @@ vector<Point3DInMap> globalPoints;
 map<int, Matx34d> all_pmats;
 map<pair<int, int>, vector<KeyPoint>> all_good_keypoints;
 map<pair<int, int>, vector<DMatch>> all_matches;
+map<int, pair<vector<Point2f>, vector<Point3f>>> imageCorrespondences;
 set<int> done_views;
 set<int> good_views;
 
@@ -82,7 +83,7 @@ double TriangulatePoints(const vector<KeyPoint>& kpts_good, const Matx34d& P1,
 	vector<KeyPoint>& correspondingImg1Pt);
 bool triangulateBetweenViews(vector<CloudPoint>& tri_pts, vector<int>& add_to_cloud,
 	vector<KeyPoint>& correspondingImg1Pt, const Matx34d& P1, const Matx34d& P2,
-	int idx1, int idx2);
+	vector<Point3DInMap>& cloud, int idx1, int idx2);
 // bool DecomposeEssentialMat(Mat_<double>& E, Mat_<double>& R1, Mat_<double>& R2,
 // 	Mat_<double>& t1, bool show); 
 bool checkRotationMat(Mat_<double>& R1);
@@ -106,13 +107,14 @@ void showCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& finalPC);
 void populatePCNoColor(vector<Point3d>& global_pcloud_3d, 
 	const pcl::PointCloud<pcl::PointXYZ>::Ptr& finalPC);
 bool computeMatches(int idx1, int idx2);
-bool computeSFM(int idx1, int idx2);
+bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud);
 void getPointRGB(vector<Vec3b>& RGBCloud);
 void displayCloud(vector<Vec3b>& RGBCloud);
 void adjustBundle(Mat& cam_matrix);
 int get2DMeasurements(const vector<CloudPoint>& global_pcloud);
 void Find2D3DCorrespondences(int curr_view, vector<Point3f>& cloud, 
 	vector<Point2f>& imgPoints);
+void Find2D3DCorrespondences();
 bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<double>& R,
 	vector<Point3f>& cloud, vector<Point2f>& imgPoints);
 void sortMatchesFromHomography(list<pair<int,pair<int,int>>>& percent_matches);
@@ -128,5 +130,7 @@ void flipMatches(const vector<DMatch>& matches, vector<DMatch>& flipedMatches);
 bool estimatePose(vector<Point3f>& points3d, vector<Point2f>& points2d, Matx34d& Pnew);
 void addMoreViewsToReconstruction();
 int get2DMeasurements(const vector<Point3DInMap>& globalPoints);
+void mergeClouds(const vector<Point3DInMap> cloud);
+void autoCalibrate();
 
 #endif
