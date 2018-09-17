@@ -27,13 +27,6 @@
 #include "CameraCalib.hpp"
 
 
-struct CloudPoint {
-	Point3d pt;
-	vector<int> imgpt_for_img;
-	double reprojection_error;
-};
-
-
 struct Point3DInMap {
     // 3D point.
     cv::Point3f p;
@@ -54,9 +47,7 @@ Mat distanceCoeffs = Mat::zeros(8, 1, CV_64F);
 vector<Mat> images;
 vector<Mat> imagesColored;
 vector<vector<KeyPoint>> all_keypoints;
-vector<Point3d> all_points;
 vector<Mat> all_descriptors;
-vector<CloudPoint> global_pcloud;
 vector<Point3DInMap> globalPoints;
 
 map<int, Matx34d> all_pmats;
@@ -79,14 +70,10 @@ void processImages(char* dirName);
 bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	vector<Point3DInMap>& cloud, int idx1, int idx2);
 bool checkRotationMat(Mat_<double>& R1);
-void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPoints);
 void useage();
 void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2);
-void getRGBCloudPoint(const vector<CloudPoint>& global_pcloud, vector<Vec3b>& out,
-	vector<KeyPoint>& keypoint_img1, vector<KeyPoint>& keypoint_img2,
-	Mat& img1_c, Mat& img2_c);
 void showCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& finalPC);
 bool computeMatches(int idx1, int idx2);
 bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud);
@@ -111,5 +98,6 @@ void addMoreViewsToReconstruction();
 int get2DMeasurements(const vector<Point3DInMap>& globalPoints);
 void mergeClouds(const vector<Point3DInMap> cloud);
 void autoCalibrate();
+void saveCloudToPLY();
 
 #endif

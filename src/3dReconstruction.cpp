@@ -70,6 +70,7 @@ int main(int argc, char** argv) {
 	triangulate2Views(first_view, second_view);
 
 	addMoreViewsToReconstruction();
+	saveCloudToPLY();
 
 	vector<Vec3b> RGBCloud;
 	getPointRGB(RGBCloud);
@@ -417,18 +418,6 @@ int get2DMeasurements(const vector<Point3DInMap>& globalPoints) {
 	return count;
 }
 
-int get2DMeasurements(const vector<CloudPoint>& global_pcloud) {
-	int count = 0;
-	for (int i = 0; i < global_pcloud.size(); ++i) {
-		for (int j = 0; j < global_pcloud[i].imgpt_for_img.size(); ++j) {
-			if (global_pcloud[i].imgpt_for_img[j] >= 0) {
-				count++;
-			}	
-		}
-	}
-	return count;
-}
-
 //this function displays the point cloud.
 void displayCloud(vector<Vec3b>& RGBCloud) {
 	pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudPtr(new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -445,7 +434,6 @@ void displayCloud(vector<Vec3b>& RGBCloud) {
 			continue;
 		}
 
-		all_points.push_back(p);
 		pcl::PointXYZRGB pt;
 		pt.x = p.x;
 		pt.y = p.y;
@@ -705,16 +693,6 @@ bool checkRotationMat(Mat_<double>& R1) {
 	}
 }
 
-/**
-* This function transforms cloudpoints into 3d points.
-*/
-void transformCloudPoints(vector<Point3d>& points3d, vector<CloudPoint>& cloudPoints) {
-	points3d.clear();
-	for (auto it = cloudPoints.begin(); it != cloudPoints.end(); ++it) {
-		points3d.push_back((*it).pt);
-	}
-}
-
 void useage() {
 	cout << "Useage: \n" << endl;
 	cout << "./3drecon <image directory>" << endl;
@@ -946,4 +924,92 @@ void autoCalibrate() {
 	K = (Mat_<float>(3,3) << 2500,   0, images[0].cols / 2,
             				 0, 2500, images[0].rows / 2,
 							 0, 0, 1);
+}
+
+void saveCloudToPLY() {
+
+	cout << "saving cloud to: points.ply" << endl;
+
+    ofstream ofs("points.ply");
+
+    //write PLY header
+    ofs << "ply                 " << endl <<
+           "format ascii 1.0    " << endl <<
+           "element vertex " << globalPoints.size() << endl <<
+           "property float x    " << endl <<
+           "property float y    " << endl <<
+           "property float z    " << endl <<
+           "property uchar red  " << endl <<
+           "property uchar green" << endl <<
+           "property uchar blue " << endl <<
+           "end_header          " << endl;
+
+    for (const Point3DInMap& p : globalPoints) {
+    	//get color from first originating view
+		auto originatingView = p.originatingViews.begin();
+		const int viewIdx = originatingView->first;
+		// Point2f p2d = mImageFeatures[viewIdx].points[originatingView->second];
+		vector<KeyPoint>& kpts = all_keypoints[viewIdx];
+		vector<Point2f> points;
+		KeyPointsToPoints(kpts, points);
+		Point2f p2d = points[originatingView->second];
+
+		Vec3b pointColor = imagesColored[viewIdx].at<Vec3b>(p2d);
+
+		//write vertex
+        ofs << p.p.x              << " " <<
+        	   p.p.y              << " " <<
+			   p.p.z              << " " <<
+			   (int)pointColor(2) << " " <<
+			   (int)pointColor(1) << " " <<
+			   (int)pointColor(0) << " " << endl;
+    }
+
+    ofs.close();
+
+    cout << "saving cameras to: points.ply" << endl;
+    ofstream ofsc("cameras.ply");
+
+    //write PLY header
+    ofsc << "ply                 " << endl <<
+           "format ascii 1.0    " << endl <<
+           "element vertex " << (all_pmats.size() * 4) << endl <<
+           "property float x    " << endl <<
+           "property float y    " << endl <<
+           "property float z    " << endl <<
+           "element edge " << (all_pmats.size() * 3) << endl <<
+           "property int vertex1" << endl <<
+           "property int vertex2" << endl <<
+           "property uchar red  " << endl <<
+           "property uchar green" << endl <<
+           "property uchar blue " << endl <<
+           "end_header          " << endl;
+
+    //save cameras polygons..
+    for (const auto& pmat : all_pmats) {
+    	Matx34d pose = pmat.second;
+        Point3d c(pose(0, 3), pose(1, 3), pose(2, 3));
+        Point3d cx = c + Point3d(pose(0, 0), pose(1, 0), pose(2, 0)) * 0.2;
+        Point3d cy = c + Point3d(pose(0, 1), pose(1, 1), pose(2, 1)) * 0.2;
+        Point3d cz = c + Point3d(pose(0, 2), pose(1, 2), pose(2, 2)) * 0.2;
+
+        ofsc << c.x  << " " << c.y  << " " << c.z  << endl;
+        ofsc << cx.x << " " << cx.y << " " << cx.z << endl;
+        ofsc << cy.x << " " << cy.y << " " << cy.z << endl;
+        ofsc << cz.x << " " << cz.y << " " << cz.z << endl;
+    }
+
+    const int camVertexStartIndex = globalPoints.size();
+
+    for (size_t i = 0; i < all_pmats.size(); i++) {
+        ofsc << (i * 4 + 0) << " " <<
+                (i * 4 + 1) << " " <<
+                "255 0 0" << endl;
+        ofsc << (i * 4 + 0) << " " <<
+                (i * 4 + 2) << " " <<
+                "0 255 0" << endl;
+        ofsc << (i * 4 + 0) << " " <<
+                (i * 4 + 3) << " " <<
+                "0 0 255" << endl;
+    }
 }
