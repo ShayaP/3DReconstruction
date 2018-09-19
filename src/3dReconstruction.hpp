@@ -71,7 +71,7 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	vector<Point3DInMap>& cloud, int idx1, int idx2);
 bool checkRotationMat(Mat_<double>& R1);
 void useage();
-void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
+void alignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2);
 void showCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& finalPC);
@@ -79,14 +79,15 @@ bool computeMatches(int idx1, int idx2);
 bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud);
 void getPointRGB(vector<Vec3b>& RGBCloud);
 void displayCloud(vector<Vec3b>& RGBCloud);
-void adjustBundle(Mat& cam_matrix);
+void adjustBundleSSBA(Mat& cam_matrix);
+void adjustBundleCeres(Mat& cam_matrix);
 void Find2D3DCorrespondences();
 bool estimatePose(int curr_view, Mat_<double>& rvec, Mat_<double>& t, Mat_<double>& R,
 	vector<Point3f>& cloud, vector<Point2f>& imgPoints);
-void sortMatchesFromHomography(list<pair<int,pair<int,int>>>& percent_matches);
+void sortMatchesFromHomography(list<pair<int, pair<int, int>>>& percent_matches);
 bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b);
 void findFeatures(Mat& img, int idx);
-void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
+void alignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2, vector<int>& leftBackRefrence, 
 	vector<int>& rightBackRefrence, vector<Point2f>& points1, vector<Point2f>& points2);
@@ -99,5 +100,6 @@ int get2DMeasurements(const vector<Point3DInMap>& globalPoints);
 void mergeClouds(const vector<Point3DInMap> cloud);
 void autoCalibrate();
 void saveCloudToPLY();
+int findHomographyInliers(int idx1, int idx2);
 
 #endif

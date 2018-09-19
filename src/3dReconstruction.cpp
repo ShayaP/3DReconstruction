@@ -5,6 +5,9 @@
 #include <Base/v3d_vrmlio.h>
 #include <Geometry/v3d_metricbundle.h>
 
+#include <ceres/ceres.h>
+#include <ceres/rotation.h>
+
 #include "3dReconstruction.hpp"
 
 using namespace std;
@@ -12,13 +15,55 @@ using namespace cv;
 using namespace cv::xfeatures2d;
 using namespace V3D;
 
+struct SimpleReprojectionError {
+    SimpleReprojectionError(double observed_x, double observed_y) :
+            observed_x(observed_x), observed_y(observed_y) {
+    }
+    template<typename T>
+    bool operator()(const T* const camera,
+    				const T* const point,
+					const T* const focal,
+						  T* residuals) const {
+        T p[3];
+        // Rotate: camera[0,1,2] are the angle-axis rotation.
+        ceres::AngleAxisRotatePoint(camera, point, p);
+
+        // Translate: camera[3,4,5] are the translation.
+        p[0] += camera[3];
+        p[1] += camera[4];
+        p[2] += camera[5];
+
+        // Perspective divide
+        const T xp = p[0] / p[2];
+        const T yp = p[1] / p[2];
+
+        // Compute final projected point position.
+        const T predicted_x = *focal * xp;
+        const T predicted_y = *focal * yp;
+
+        // The error is the difference between the predicted and observed position.
+        residuals[0] = predicted_x - T(observed_x);
+        residuals[1] = predicted_y - T(observed_y);
+        return true;
+    }
+    // Factory to hide the construction of the CostFunction object from
+    // the client code.
+    static ceres::CostFunction* Create(const double observed_x, const double observed_y) {
+        return (new ceres::AutoDiffCostFunction<SimpleReprojectionError, 2, 6, 3, 1>(
+                new SimpleReprojectionError(observed_x, observed_y)));
+    }
+    double observed_x;
+    double observed_y;
+};
+
+
 int main(int argc, char** argv) {
 
 	//process the images and save them in their data structures
 	processImages(argv[1]);
 	all_keypoints.resize(images.size(), vector<KeyPoint>());
 	all_descriptors.resize(images.size(), Mat());
-	cout << "processed images" << endl;
+	cout << "processed images\n" << endl;
 
 	show = false;
 
@@ -51,14 +96,15 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < images.size(); ++i) {
 		findFeatures(images[i], i);
 	}
-	cout << "done detecting and computing features" << endl;
+	cout << "---done detecting and computing features\n" << endl;
 
+	cout << "Matching Descriptors......." << endl;
 	//detect maching keypoints for different images.
 	for (int i = 0; i < images.size() - 1; ++i) {
 		for (int j = i + 1; j < images.size(); ++j) {
 			bool matches_res = computeMatches(i, j);
 			if (matches_res) {
-				cout << "successful matching with image: [" << i << ", " << j << "]" << endl;
+				cout << "successful matching with image: [" << i << ", " << j << "]\n" << endl;
 				//cout << "current cloud size: " << all_points.size() << "\n\n" << endl;
 			} else {
 				cout << "failed matching with image: [" << i << ", " << j << "]\n\n" << endl;
@@ -86,6 +132,7 @@ int main(int argc, char** argv) {
 }
 
 void addMoreViewsToReconstruction() {
+	cout << "K: " << K << endl;
 	while(done_views.size() != images.size()) {
 		Find2D3DCorrespondences();
 		unsigned int max_2d3d_view = -1, max_2d3d_count = 0;
@@ -110,7 +157,7 @@ void addMoreViewsToReconstruction() {
 			cout << "could not recover pose for view: " << i << endl;
 			continue;
 		}
-		cout << "found good pose" << endl;
+		cout << "--found good pose" << endl;
 		all_pmats[i] = Pnew;
 
 		bool success = false;
@@ -121,7 +168,7 @@ void addMoreViewsToReconstruction() {
 			vector<Point3DInMap> cloud;
 			bool sfm_res = computeSFM(idx1, idx2, cloud);
 			if (sfm_res) {
-				cout << "merge points for: " << idx1 << " and " << idx2 << endl;
+				cout << "\nMerge points for: " << idx1 << " and " << idx2 << "....." << endl;
 				mergeClouds(cloud);
 				success = true;
 			} else {
@@ -129,9 +176,11 @@ void addMoreViewsToReconstruction() {
 			}
 
 			if (success) {
+				cout << "\n-- Starting Bundle Adjustment --" << endl;
 				Mat cam_matrix = K;
-				adjustBundle(cam_matrix);
-				K = cam_matrix;
+				adjustBundleCeres(cam_matrix);
+				cout << "...finished bundle adjustment\n" << endl;
+				//K = cam_matrix;
 			}
 			good_views.insert(i);
 
@@ -141,8 +190,10 @@ void addMoreViewsToReconstruction() {
 
 void triangulate2Views(int first_view, int second_view) {
 
+	cout << "initial K: " << K << endl;
 	//getting baseline reconstruction from 2 view
 	list<pair<int,pair<int,int>>> percent_matches;
+	// map<float, pair<int, int>> percent_matches;
 	sortMatchesFromHomography(percent_matches);
 	vector<Point3DInMap> cloud;
 
@@ -161,7 +212,6 @@ void triangulate2Views(int first_view, int second_view) {
 			cout << "failed sfm with image: [" << i << ", " << j << "]\n\n" << endl;
 		}
 	}
-	//cout << "\n...after baseline triangulation found: " << global_pcloud.size() << " points.\n" << endl;
 	cout << "\n...after baseline triangulation found: " << cloud.size() << " points.\n" << endl;
 	
 	globalPoints = cloud;
@@ -170,22 +220,20 @@ void triangulate2Views(int first_view, int second_view) {
 	good_views.insert(first_view);
 	good_views.insert(second_view);
 
-	cout << "\n -- Starting Bundle Adjustment -- \n" << endl;
+	cout << "\n-- Starting Bundle Adjustment --" << endl;
 	Mat cam_matrix = K;
-	adjustBundle(cam_matrix);
+	adjustBundleCeres(cam_matrix);
 	cout << "...finished bundle adjustment\n" << endl;
-	K = cam_matrix;
+	//K = cam_matrix;
 }
 
 bool estimatePose(vector<Point3f>& points3d, vector<Point2f>& points2d, Matx34d& Pnew) {
 
 	Mat rvec, tvec;
 	Mat inliers;
-	solvePnPRansac(points3d, points2d, K, distanceCoeffs, rvec, tvec, false, 100, 
+	solvePnPRansac(points3d, points2d, K, distanceCoeffs, rvec, tvec, false, 1000, 
 		10.0f, 0.99, inliers);
-	cout << "inliers size: " << inliers.rows << endl;
-	cout << "points2d size: " << points2d.size() << endl;
-	if (((float)countNonZero(inliers) / (float)points2d.size()) < 0.5) {
+	if ((float)countNonZero(inliers) < ((float)points2d.size() / 5.0)) {
 		cout << "error: inliers ratio is too small in pose estimation" << endl;
 		cout << "ratio was: " << ((float)countNonZero(inliers) / (float)points2d.size()) << endl;
 		return false;
@@ -203,9 +251,6 @@ bool estimatePose(vector<Point3f>& points3d, vector<Point2f>& points2d, Matx34d&
 * and further refines the cloud point.
 */ 
 void Find2D3DCorrespondences() {
-
-// int curr_view, vector<Point3f>& cloud, 
-// 	vector<Point2f>& imgPoints
 
 	imageCorrespondences.clear();
 
@@ -255,7 +300,96 @@ void Find2D3DCorrespondences() {
 	}
 }
 
-void adjustBundle(Mat& cam_matrix) {
+void adjustBundleCeres(Mat& cam_matrix) {
+	ceres::Problem problem;
+	typedef Matx<double, 1, 6> CameraVector;
+	vector<CameraVector> cameraPoses6d;
+	cameraPoses6d.reserve(all_pmats.size());
+	for (int i = 0; i < all_pmats.size(); ++i) {
+		const Matx34d& pose = all_pmats[i];
+		if (pose(0, 0) == 0 && pose(1, 1) == 0 && pose(2, 2) == 0) {
+			cameraPoses6d.push_back(CameraVector());
+			continue;
+		}
+		Vec3f t(pose(0, 3), pose(1, 3), pose(2, 3));
+		 Matx33f R = pose.get_minor<3, 3>(0, 0);
+        float angleAxis[3];
+		ceres::RotationMatrixToAngleAxis<float>(R.t().val, angleAxis);
+
+		cameraPoses6d.push_back(CameraVector(angleAxis[0], angleAxis[1], angleAxis[2],
+			t(0), t(1), t(2)));
+	}
+
+	double focal = cam_matrix.at<double>(0, 0);
+	vector<Vec3d> points3d(globalPoints.size());
+	for (int i = 0; i < globalPoints.size(); ++i) {
+		const Point3DInMap& p = globalPoints[i];
+		points3d[i] = Vec3d(p.p.x, p.p.y, p.p.z);
+
+		for (const auto& kv : p.originatingViews) {
+			Point2f p2d = all_keypoints[kv.first][kv.second].pt;
+			p2d.x -= cam_matrix.at<double>(0, 2);
+			p2d.y -= cam_matrix.at<double>(1, 2);
+
+			ceres::CostFunction* cost_function = SimpleReprojectionError::Create(p2d.x, p2d.y);
+
+			problem.AddResidualBlock(cost_function, NULL, cameraPoses6d[kv.first].val,
+				points3d[i].val, &focal);
+		}
+	}
+
+	ceres::Solver::Options options;
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    options.minimizer_progress_to_stdout = true;
+    options.max_num_iterations = 500;
+    options.eta = 1e-2;
+    options.max_solver_time_in_seconds = 20;
+    options.logging_type = ceres::LoggingType::SILENT;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+	cout << summary.BriefReport() << endl;
+
+	if (!(summary.termination_type == ceres::CONVERGENCE)) {
+		cout << "error BA failed" << endl;
+		return;
+	}
+
+	//update the camera parameters
+	// cam_matrix.at<double>(0, 0) = focal;
+	// cam_matrix.at<double>(0, 0) = focal;
+
+	for (int i = 0; i < all_pmats.size(); ++i) {
+		Matx34d& pose = all_pmats[i];
+		Matx34d poseBefore = pose;
+
+		if (pose(0, 0) == 0 && pose(1, 1) == 0 && pose(2, 2) == 0) {
+			continue;
+		}
+
+		double rotationMat[9] = {0};
+		ceres::AngleAxisToRotationMatrix(cameraPoses6d[i].val, rotationMat);
+
+		for (int r = 0; r < 3; ++r) {
+			for (int c = 0; c < 3; c++) {
+				pose(c, r) = rotationMat[r * 3 + c];
+			}
+		}
+
+		//Translation
+        pose(0, 3) = cameraPoses6d[i](3);
+        pose(1, 3) = cameraPoses6d[i](4);
+		pose(2, 3) = cameraPoses6d[i](5);
+
+	}
+
+	for (int i = 0; i < globalPoints.size(); ++i) {
+		globalPoints[i].p.x = points3d[i](0);
+		globalPoints[i].p.y = points3d[i](1);
+		globalPoints[i].p.z = points3d[i](2);
+	}
+}
+
+void adjustBundleSSBA(Mat& cam_matrix) {
 	int N = all_pmats.size();
 	int M = globalPoints.size();
 	int K = get2DMeasurements(globalPoints);
@@ -484,12 +618,12 @@ bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud) {
 	vector<KeyPoint> kpts2 = all_keypoints[idx2];
 	int image_size = images.size();
 
-	cout << "\nSFM with images: [" << idx1 << ", " << idx2 << "]" << endl;
+	cout << "---SFM with images: [" << idx1 << ", " << idx2 << "]" << endl;
 
 	vector<KeyPoint> pts1_temp, pts2_temp;
 	vector<DMatch> matches = all_matches[make_pair(idx1, idx2)];
 	cout << "matches size: " << matches.size() << endl;
-	allignPoints(kpts1, kpts2, matches, pts1_temp, pts2_temp);
+	alignPoints(kpts1, kpts2, matches, pts1_temp, pts2_temp);
 	vector<Point2f> points1, points2;
 	for (unsigned int i = 0; i < matches.size(); ++i) {
 		points1.push_back(pts1_temp[i].pt);
@@ -552,9 +686,7 @@ bool computeMatches(int idx1, int idx2) {
 	matches = matches_;
 
 
-	if (show) {
-		cout << "found : " << matches.size() << " matches" << endl;
-	}
+	cout << "found : " << matches.size() << " matches" << endl;
 
 	//filter the matches
 	cout << "----- filtering matches" << endl;
@@ -577,9 +709,9 @@ bool computeMatches(int idx1, int idx2) {
 	vector<uchar> status;
 	vector<KeyPoint> pts1_good, pts2_good;
 
-	// now we allign the matched points.
+	// now we align the matched points.
 	vector<KeyPoint> pts1_temp, pts2_temp;
-	allignPoints(kpts1, kpts2, good_matches, pts1_temp, pts2_temp);
+	alignPoints(kpts1, kpts2, good_matches, pts1_temp, pts2_temp);
 	vector<Point2f> points1, points2;
 	for (unsigned int i = 0; i < good_matches.size(); ++i) {
 		points1.push_back(pts1_temp[i].pt);
@@ -628,7 +760,7 @@ bool computeMatches(int idx1, int idx2) {
 	vector<DMatch> flipedMatches;
 	flipMatches(good_matches, flipedMatches);
 	all_matches[make_pair(idx2, idx1)] = flipedMatches;
-	cout << "matches size: " << matches.size() << endl;
+	cout << "matches size: " << good_matches.size() << endl;
 
 	return true;
 }
@@ -701,12 +833,12 @@ void useage() {
 }
 
 /**
-* this function alligns keypoints between two images.
+* this function aligns keypoints between two images.
 * parameters: takes in the keypoints for the first and second image.
 * 	a vector of matches.
-* output: 2 vectors of alligned keypoints between the images.
+* output: 2 vectors of aligned keypoints between the images.
 */
-void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
+void alignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2) {
 	for (int i = 0; i < good_matches.size(); ++i) {
@@ -718,12 +850,12 @@ void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpt
 }
 
 /**
-* this function alligns keypoints between two images.
+* this function aligns keypoints between two images.
 * parameters: takes in the keypoints for the first and second image.
 * 	a vector of matches.
-* output: 2 vectors of alligned keypoints between the images.
+* output: 2 vectors of aligned keypoints between the images.
 */
-void allignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
+void alignPoints(const vector<KeyPoint>& imgpts1, const vector<KeyPoint>& imgpts2,
 	const vector<DMatch>& good_matches, vector<KeyPoint>& new_pts1,
 	vector<KeyPoint>& new_pts2, vector<int>& leftBackRefrence, 
 	vector<int>& rightBackRefrence, vector<Point2f>& points1, vector<Point2f>& points2) {
@@ -759,7 +891,7 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	vector<DMatch> matches = all_matches[make_pair(idx1, idx2)];
 	vector<Point2f> points1, points2;
 
-	allignPoints(kpts1, kpts2, matches, kpts1_temp, kpts2_temp, 
+	alignPoints(kpts1, kpts2, matches, kpts1_temp, kpts2_temp, 
 		leftBackReference, rightBackReference, points1, points2);
 
 	Mat normilized_pts1, normilized_pts2;
@@ -802,7 +934,21 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 	return true;
 }
 
-void sortMatchesFromHomography(list<pair<int, pair<int,int>>>& percent_matches) {
+void sortMatchesFromHomography(list<pair<int, pair<int, int>>>& percent_matches) {
+
+	// const int image_size = images.size();
+	// for (int i = 0; i < image_size - 1; ++i) {
+	// 	for (int j = i + 1; j < image_size; ++j) {
+	// 		if (all_matches[make_pair(i, j)].size() < 100) {
+	// 			percent_matches[1.0] = make_pair(i, j);
+	// 			continue;
+	// 		}
+
+	// 		const int inliers = findHomographyInliers(i, j);
+	// 		const float ratio = (float)inliers / (float)(all_matches[make_pair(i, j)].size());
+	// 		percent_matches[ratio] = make_pair(i, j);
+	// 	}
+	// }
 
 	for (auto it = all_matches.begin(); it != all_matches.end(); ++it) {
 		if ((*it).second.size() < 100) {
@@ -813,7 +959,7 @@ void sortMatchesFromHomography(list<pair<int, pair<int,int>>>& percent_matches) 
 			int idx1 = (*it).first.first;
 			int idx2 = (*it).first.second;
 
-			allignPoints(all_keypoints[idx1], all_keypoints[idx2], all_matches[make_pair(idx1, idx2)],
+			alignPoints(all_keypoints[idx1], all_keypoints[idx2], all_matches[make_pair(idx1, idx2)],
 				keypts1, keypts2);
 			for (int i = 0; i < keypts1.size(); ++i) {
 				pts1.push_back(keypts1[i].pt);
@@ -834,6 +980,28 @@ void sortMatchesFromHomography(list<pair<int, pair<int,int>>>& percent_matches) 
 		}
 	}
 	percent_matches.sort(sortFromPercentage);
+}
+
+int findHomographyInliers(int idx1, int idx2) {
+	vector<KeyPoint> kpts1 = all_keypoints[idx1];
+	vector<KeyPoint> kpts2 = all_keypoints[idx2];
+	vector<DMatch> matches = all_matches[make_pair(idx1, idx2)];
+	vector<KeyPoint> kpts1_temp, kpts2_temp;
+	vector<Point2f> points1, points2;
+
+	alignPoints(kpts1, kpts2, matches, kpts1_temp, kpts2_temp);
+	KeyPointsToPoints(kpts1_temp, points1);
+	KeyPointsToPoints(kpts2_temp, points2);
+
+	Mat inliers, H;
+	if (matches.size() >= 4) {
+		H = findHomography(points1, points2, CV_RANSAC, 10.0f, inliers);
+	}
+	if (matches.size() < 4 || H.empty()) {
+		return 0;
+	}
+	return countNonZero(inliers);
+
 }
 
 bool sortFromPercentage(pair<int, pair<int, int>> a, pair<int, pair<int, int>> b) {

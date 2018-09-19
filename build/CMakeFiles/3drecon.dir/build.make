@@ -271,6 +271,7 @@ CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.provides.build: CMakeFiles/3dr
 3drecon: /usr/local/lib/libopencv_ximgproc.so.3.4.2
 3drecon: /usr/local/lib/libopencv_xobjdetect.so.3.4.2
 3drecon: /usr/local/lib/libopencv_xphoto.so.3.4.2
+3drecon: /usr/local/lib/libceres.a
 3drecon: SSBA/libV3D.a
 3drecon: SSBA/libcolamd.a
 3drecon: /usr/lib/x86_64-linux-gnu/libpcl_common.so
@@ -408,6 +409,36 @@ CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.provides.build: CMakeFiles/3dr
 3drecon: /usr/local/lib/libopencv_objdetect.so.3.4.2
 3drecon: /usr/local/lib/libopencv_imgproc.so.3.4.2
 3drecon: /usr/local/lib/libopencv_core.so.3.4.2
+3drecon: /usr/lib/x86_64-linux-gnu/libglog.so
+3drecon: /usr/lib/x86_64-linux-gnu/libgflags.so
+3drecon: /usr/lib/x86_64-linux-gnu/libspqr.so
+3drecon: /usr/lib/x86_64-linux-gnu/libtbbmalloc.so
+3drecon: /usr/local/lib/libtbb.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcholmod.so
+3drecon: /usr/lib/x86_64-linux-gnu/libccolamd.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcamd.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcolamd.so
+3drecon: /usr/lib/x86_64-linux-gnu/libamd.so
+3drecon: /usr/lib/liblapack.so
+3drecon: /usr/lib/libf77blas.so
+3drecon: /usr/lib/libatlas.so
+3drecon: /usr/lib/x86_64-linux-gnu/libsuitesparseconfig.so
+3drecon: /usr/lib/x86_64-linux-gnu/librt.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcxsparse.so
+3drecon: /usr/lib/x86_64-linux-gnu/libspqr.so
+3drecon: /usr/lib/x86_64-linux-gnu/libtbbmalloc.so
+3drecon: /usr/local/lib/libtbb.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcholmod.so
+3drecon: /usr/lib/x86_64-linux-gnu/libccolamd.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcamd.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcolamd.so
+3drecon: /usr/lib/x86_64-linux-gnu/libamd.so
+3drecon: /usr/lib/liblapack.so
+3drecon: /usr/lib/libf77blas.so
+3drecon: /usr/lib/libatlas.so
+3drecon: /usr/lib/x86_64-linux-gnu/libsuitesparseconfig.so
+3drecon: /usr/lib/x86_64-linux-gnu/librt.so
+3drecon: /usr/lib/x86_64-linux-gnu/libcxsparse.so
 3drecon: CMakeFiles/3drecon.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable 3drecon"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/3drecon.dir/link.txt --verbose=$(VERBOSE)
