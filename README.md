@@ -24,12 +24,14 @@ then either:<br/>
   <b>Examples</b><br/>
 </p>
 Some examples of reconstructions from the res folder:<br/>
-
+<br/>
 <p align="center">
   1- testPics (contains 3 images of a russian doll):<br/>
+  <br/>
   <img src="https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result1.png"/><br/>
   <img src="https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/result2.png"/><br/>
   2- new (contains 3 images of a mask):<br/>
+  <br/>
   <img src="https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/Results/mask1.png"/><br/>
   <img src="https://raw.githubusercontent.com/ShayaP/3DReconstruction/master/Results/mask2.png"/><br/>
 </p>
