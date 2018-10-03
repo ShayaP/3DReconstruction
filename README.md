@@ -5,6 +5,12 @@
 This project recreates a 3d scene given a series of images from a calibrated camera using Structure From Motion techniques. The camera's intrinsics must be included in the calibinfo.yml, otherwise a folder with calibration images must be given for manual calibration. if nothing is provided auto calibration will take place but the intrinsics will only be an estimate.<br/>
 
 <p align="center">
+  <b>Autocalibration</b><br/>
+</p>
+
+If no camera intrinsics are provided, then autocalibration will take place. The algorithm for self calibration is based on the paper "Estimating Intrinsic Camera Parameters from the Fundamental Matrix Using an Evolutionary Approach" by A. Whitehead and G. Roth. First the Essential Matrix is estiamted by using a dummy K matrix for the intrinsics, which is then improved by bundle adjustment.
+
+<p align="center">
   <b>Building/Usage</b><br/>
 </p>
 
