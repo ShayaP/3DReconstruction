@@ -42,3 +42,6 @@ Some examples of reconstructions from the res folder:<br/>
 
 * Multiple View Geometry by Hartley and Zisserman<br/>
 * Mastering OpenCV with Practical Computer Vision Projects<br/>
+* Estimating Intrinsic Camera Parameters from the Fundamental Matrix Using
+  an Evolutionary Approach
+  by: A. Whitehead and G. Roth</br>
