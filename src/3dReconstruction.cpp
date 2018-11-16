@@ -1,10 +1,3 @@
-//include files from SSBA for bundle adjustment
-#define V3DLIB_ENABLE_SUITESPARSE
-
-#include <Math/v3d_linear.h>
-#include <Base/v3d_vrmlio.h>
-#include <Geometry/v3d_metricbundle.h>
-
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 
@@ -13,49 +6,6 @@
 using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
-using namespace V3D;
-
-struct SimpleReprojectionError {
-    SimpleReprojectionError(double observed_x, double observed_y) :
-            observed_x(observed_x), observed_y(observed_y) {
-    }
-    template<typename T>
-    bool operator()(const T* const camera,
-    				const T* const point,
-					const T* const focal,
-						  T* residuals) const {
-        T p[3];
-        // Rotate: camera[0,1,2] are the angle-axis rotation.
-        ceres::AngleAxisRotatePoint(camera, point, p);
-
-        // Translate: camera[3,4,5] are the translation.
-        p[0] += camera[3];
-        p[1] += camera[4];
-        p[2] += camera[5];
-
-        // Perspective divide
-        const T xp = p[0] / p[2];
-        const T yp = p[1] / p[2];
-
-        // Compute final projected point position.
-        const T predicted_x = *focal * xp;
-        const T predicted_y = *focal * yp;
-
-        // The error is the difference between the predicted and observed position.
-        residuals[0] = predicted_x - T(observed_x);
-        residuals[1] = predicted_y - T(observed_y);
-        return true;
-    }
-    // Factory to hide the construction of the CostFunction object from
-    // the client code.
-    static ceres::CostFunction* Create(const double observed_x, const double observed_y) {
-        return (new ceres::AutoDiffCostFunction<SimpleReprojectionError, 2, 6, 3, 1>(
-                new SimpleReprojectionError(observed_x, observed_y)));
-    }
-    double observed_x;
-    double observed_y;
-};
-
 
 int main(int argc, char** argv) {
 
@@ -65,7 +15,8 @@ int main(int argc, char** argv) {
 	all_descriptors.resize(images.size(), Mat());
 	cout << "processed images\n" << endl;
 
-	show = false;
+	debug = false;
+	auto_calibrate = false;
 
 	if (argc < 2) {
 		cout << "wrong number of arguments" << endl;
@@ -73,26 +24,47 @@ int main(int argc, char** argv) {
 		return -1;
 	} else if (argc == 4) {
 		if (string(argv[3]) == "-V") {
-			show = true;
+			debug = true;
 		} 
 		if (string(argv[2]) == "-A") {
 			//auto-calibrate.
-			autoCalibrate();
+			auto_calibrate = true;
+			Size imgSize = images[0].size();
+			double max_w_h = MAX(imgSize.height, imgSize.width);
+			K = (Mat_<double>(3, 3) << max_w_h, 0, imgSize.width/2.0,
+										0, max_w_h, imgSize.height/2.0,
+										0, 0, 1);
+			distortionCoeffs = Mat_<double>::zeros(1, 4);
 		} else {
-			CameraCalib cc(argv[2], K, distanceCoeffs, rVectors, tVectors, show);	
+			CameraCalib cc(argv[2], K, distortionCoeffs, rVectors, tVectors, debug);	
 		}
 		
 	} else if (argc == 3) {
 		if (string(argv[2]) == "-V") {
-			show = true;
+			debug = true;
+		} else if (string(argv[2]) == "-A") {
+			auto_calibrate = true;
+			Size imgSize = images[0].size();
+			double max_w_h = MAX(imgSize.height, imgSize.width);
+			K = (Mat_<double>(3, 3) << max_w_h, 0, imgSize.width/2.0,
+										0, max_w_h, imgSize.height/2.0,
+										0, 0, 1);
+			distortionCoeffs = Mat_<double>::zeros(1, 4);
+		} else {
+			CameraCalib cc("../src/calibInfo.yml", K, distortionCoeffs);	
 		}
-		CameraCalib cc("../src/calibInfo.yml", K, distanceCoeffs);
 	} else if (argc == 2) {
 		//read in calibration info from file.
-		CameraCalib cc("../src/calibInfo.yml", K, distanceCoeffs);
-		show = false;
+		CameraCalib cc("../src/calibInfo.yml", K, distortionCoeffs);
+		debug = false;
 	}
 
+	if (images.size() == 0) {
+		cout << "found no images" << endl;
+		return -1;
+	}
+
+	//Detect features for each image.
 	for (int i = 0; i < images.size(); ++i) {
 		findFeatures(images[i], i);
 	}
@@ -114,7 +86,10 @@ int main(int argc, char** argv) {
 
 	//get the baseline triangulation with 2 views
 	triangulate2Views(first_view, second_view);
-
+	if (globalPoints.size() == 0) {
+		//could not find baseline triangulation
+		return -1;
+	}
 	addMoreViewsToReconstruction();
 	saveCloudToPLY();
 
@@ -132,7 +107,6 @@ int main(int argc, char** argv) {
 }
 
 void addMoreViewsToReconstruction() {
-	cout << "K: " << K << endl;
 	while(done_views.size() != images.size()) {
 		Find2D3DCorrespondences();
 		unsigned int max_2d3d_view = -1, max_2d3d_count = 0;
@@ -166,10 +140,30 @@ void addMoreViewsToReconstruction() {
 			size_t idx2 = (good_view < i) ? i : good_view;
 			if (idx1 == idx2) continue;
 			vector<Point3DInMap> cloud;
-			bool sfm_res = computeSFM(idx1, idx2, cloud);
-			if (sfm_res) {
+			Matx34d P0, P1;
+			vector<DMatch> newMatches;
+			bool sfm_res = computeSFM(idx1, idx2, cloud, P0, P1, newMatches);
+			if (!sfm_res) {
+				cout << "could not compute the SFM" << endl;
+				continue;
+			}
+
+			//update the matches.
+			all_matches[make_pair(idx1, idx2)] = newMatches;
+			vector<DMatch> flipedMatches;
+			flipMatches(newMatches, flipedMatches);
+			all_matches[make_pair(idx2, idx1)] = flipedMatches;
+
+			//Triangulate the points for the new view
+			cout << "before triangulation: " << cloud.size() << endl;
+			bool tri_res = triangulateBetweenViews(P0, P1, cloud, idx1, idx2);
+			cout << "after triangulation: " << cloud.size() << endl;	
+
+			if (tri_res) {
 				cout << "\nMerge points for: " << idx1 << " and " << idx2 << "....." << endl;
+				cout << "globalPoints size: before" << globalPoints.size() << endl;
 				mergeClouds(cloud);
+				cout << "globalPoints after size: " << globalPoints.size() << endl;
 				success = true;
 			} else {
 				cout << "could not compute sfm" << endl;
@@ -178,9 +172,9 @@ void addMoreViewsToReconstruction() {
 			if (success) {
 				cout << "\n-- Starting Bundle Adjustment --" << endl;
 				Mat cam_matrix = K;
-				adjustBundleCeres(cam_matrix);
+				bool ba_res = adjustBundleCeres(globalPoints, cam_matrix);
 				cout << "...finished bundle adjustment\n" << endl;
-				//K = cam_matrix;
+				K = cam_matrix;
 			}
 			good_views.insert(i);
 
@@ -190,11 +184,14 @@ void addMoreViewsToReconstruction() {
 
 void triangulate2Views(int first_view, int second_view) {
 
-	cout << "initial K: " << K << endl;
 	//getting baseline reconstruction from 2 view
 	list<pair<int,pair<int,int>>> percent_matches;
-	// map<float, pair<int, int>> percent_matches;
 	sortMatchesFromHomography(percent_matches);
+
+	//parameters for ComputeSFM method
+	Matx34d P0 = Matx34d::eye();
+	Matx34d P1 = Matx34d::eye();
+	vector<DMatch> newMatches;
 	vector<Point3DInMap> cloud;
 
 	cout << "\nGetting baseline triangulation......" << endl;
@@ -203,37 +200,52 @@ void triangulate2Views(int first_view, int second_view) {
 		int j = it->second.second;
 		first_view  = i;
 		second_view = j;
+		
 		cout << "image [" << i << ", " << j << "] with " << it->first << "%" << endl;
-		bool sfm_res = computeSFM(i, j, cloud);
-		if (sfm_res) {
-			cout << "successful sfm with image: [" << i << ", " << j << "]" << endl;
-			break;
-		} else {
-			cout << "failed sfm with image: [" << i << ", " << j << "]\n\n" << endl;
-		}
+		bool sfm_res = computeSFM(i, j, cloud, P0, P1, newMatches);
+		cout << "before triangulation: " << cloud.size() << endl;
+		bool tri_res = triangulateBetweenViews(P0, P1, cloud, i, j);
+		cout << "after triangulation: " << cloud.size() << endl;	
+
+		//update the matches
+		all_matches[make_pair(i, j)] = newMatches;
+		vector<DMatch> flipedMatches;
+		flipMatches(newMatches, flipedMatches);
+		all_matches[make_pair(j, i)] = flipedMatches;
+
+		cout << "new matches size: " << newMatches.size() << endl;
+
+		if (!sfm_res) {
+			cout << "failed sfm with image: [" << i << ", " << j << "]" << endl;
+			continue;
+		} 
+
+		done_views.insert(first_view);
+		done_views.insert(second_view);
+		good_views.insert(first_view);
+		good_views.insert(second_view);
+
+		all_pmats[i] = P0;
+		all_pmats[j] = P1;
+		globalPoints = cloud;
+
+		cout << "\n-- Starting Bundle Adjustment --" << endl;
+		Mat cam_matrix = K;
+		bool ba_res = adjustBundleCeres(globalPoints, cam_matrix);
+		cout << "...finished bundle adjustment\n" << endl;
+		K = cam_matrix;
+		break;
 	}
 	cout << "\n...after baseline triangulation found: " << cloud.size() << " points.\n" << endl;
-	
-	globalPoints = cloud;
-	done_views.insert(first_view);
-	done_views.insert(second_view);
-	good_views.insert(first_view);
-	good_views.insert(second_view);
-
-	cout << "\n-- Starting Bundle Adjustment --" << endl;
-	Mat cam_matrix = K;
-	adjustBundleCeres(cam_matrix);
-	cout << "...finished bundle adjustment\n" << endl;
-	//K = cam_matrix;
 }
 
 bool estimatePose(vector<Point3f>& points3d, vector<Point2f>& points2d, Matx34d& Pnew) {
 
 	Mat rvec, tvec;
 	Mat inliers;
-	solvePnPRansac(points3d, points2d, K, distanceCoeffs, rvec, tvec, false, 1000, 
+	solvePnPRansac(points3d, points2d, K, distortionCoeffs, rvec, tvec, false, 1000, 
 		10.0f, 0.99, inliers);
-	if ((float)countNonZero(inliers) < ((float)points2d.size() / 5.0)) {
+	if ((float)countNonZero(inliers) < ((float)points2d.size() / 5)) {
 		cout << "error: inliers ratio is too small in pose estimation" << endl;
 		cout << "ratio was: " << ((float)countNonZero(inliers) / (float)points2d.size()) << endl;
 		return false;
@@ -300,7 +312,8 @@ void Find2D3DCorrespondences() {
 	}
 }
 
-void adjustBundleCeres(Mat& cam_matrix) {
+bool adjustBundleCeres(vector<Point3DInMap>& cloud, Mat& cam_matrix) {
+	cout << "BA cloud size: " << cloud.size() << endl;
 	ceres::Problem problem;
 	typedef Matx<double, 1, 6> CameraVector;
 	vector<CameraVector> cameraPoses6d;
@@ -321,9 +334,9 @@ void adjustBundleCeres(Mat& cam_matrix) {
 	}
 
 	double focal = cam_matrix.at<double>(0, 0);
-	vector<Vec3d> points3d(globalPoints.size());
-	for (int i = 0; i < globalPoints.size(); ++i) {
-		const Point3DInMap& p = globalPoints[i];
+	vector<Vec3d> points3d(cloud.size());
+	for (int i = 0; i < cloud.size(); ++i) {
+		const Point3DInMap& p = cloud[i];
 		points3d[i] = Vec3d(p.p.x, p.p.y, p.p.z);
 
 		for (const auto& kv : p.originatingViews) {
@@ -339,24 +352,25 @@ void adjustBundleCeres(Mat& cam_matrix) {
 	}
 
 	ceres::Solver::Options options;
-    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    options.linear_solver_type = ceres::SPARSE_SCHUR;
     options.minimizer_progress_to_stdout = true;
     options.max_num_iterations = 500;
     options.eta = 1e-2;
     options.max_solver_time_in_seconds = 20;
-    options.logging_type = ceres::LoggingType::SILENT;
+	options.logging_type = ceres::LoggingType::SILENT;
+
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
 	cout << summary.BriefReport() << endl;
 
 	if (!(summary.termination_type == ceres::CONVERGENCE)) {
 		cout << "error BA failed" << endl;
-		return;
+		return false;
 	}
 
 	//update the camera parameters
-	// cam_matrix.at<double>(0, 0) = focal;
-	// cam_matrix.at<double>(0, 0) = focal;
+	cam_matrix.at<double>(0, 0) = focal;
+	cam_matrix.at<double>(0, 0) = focal;
 
 	for (int i = 0; i < all_pmats.size(); ++i) {
 		Matx34d& pose = all_pmats[i];
@@ -382,164 +396,12 @@ void adjustBundleCeres(Mat& cam_matrix) {
 
 	}
 
-	for (int i = 0; i < globalPoints.size(); ++i) {
-		globalPoints[i].p.x = points3d[i](0);
-		globalPoints[i].p.y = points3d[i](1);
-		globalPoints[i].p.z = points3d[i](2);
+	for (int i = 0; i < cloud.size(); ++i) {
+		cloud[i].p.x = points3d[i](0);
+		cloud[i].p.y = points3d[i](1);
+		cloud[i].p.z = points3d[i](2);
 	}
-}
-
-void adjustBundleSSBA(Mat& cam_matrix) {
-	int N = all_pmats.size();
-	int M = globalPoints.size();
-	int K = get2DMeasurements(globalPoints);
-	StdDistortionFunction distortion;
-
-	Matrix3x3d KMat;
-	makeIdentityMatrix(KMat);
-	KMat[0][0] = cam_matrix.at<double>(0,0); //fx
-	KMat[1][1] = cam_matrix.at<double>(1,1); //fy
-	KMat[0][1] = cam_matrix.at<double>(0,1); //skew
-	KMat[0][2] = cam_matrix.at<double>(0,2); //ppx
-	KMat[1][2] = cam_matrix.at<double>(1,2); //ppy
-
-	double const f0 = KMat[0][0];
-	if (show) {
-		cout << "before bundle adjustment: " << endl;
-		displayMatrix(KMat);
-	}
-
-	Matrix3x3d Knorm = KMat;
-	scaleMatrixIP(1.0/f0, Knorm);
-	Knorm[2][2] = 1.0;
-	
-	vector<int> pointIdFwdMap(M);
-	map<int, int> pointIdBwdMap;
-	
-	//conver 3D point cloud to BA datastructs
-	vector<Vector3d > Xs(M);
-	for (int i = 0; i < M; ++i) {
-		int pointId = i;
-		Xs[i][0] = globalPoints[i].p.x;
-		Xs[i][1] = globalPoints[i].p.y;
-		Xs[i][2] = globalPoints[i].p.z;
-		pointIdFwdMap[i] = pointId;
-		pointIdBwdMap.insert(make_pair(pointId, i));
-	}
-	vector<int> camIdFwdMap(N,-1);
-	map<int, int> camIdBwdMap;
-	
-	//convert cameras to BA datastructs
-	vector<CameraMatrix> cams(N);
-	for (int i = 0; i < N; ++i) {
-		int camId = i;
-		Matrix3x3d R;
-		Vector3d T;
-
-		Matx34d& P = all_pmats[i];
-		R[0][0] = P(0,0); R[0][1] = P(0,1); R[0][2] = P(0,2); T[0] = P(0,3);
-		R[1][0] = P(1,0); R[1][1] = P(1,1); R[1][2] = P(1,2); T[1] = P(1,3);
-		R[2][0] = P(2,0); R[2][1] = P(2,1); R[2][2] = P(2,2); T[2] = P(2,3);
-		
-		camIdFwdMap[i] = camId;
-		camIdBwdMap.insert(make_pair(camId, i));
-		
-		cams[i].setIntrinsic(Knorm);
-		cams[i].setRotation(R);
-		cams[i].setTranslation(T);
-	}
-
-	vector<Vector2d > measurements;
-	vector<int> correspondingView;
-	vector<int> correspondingPoint;
-	
-	measurements.reserve(K);
-	correspondingView.reserve(K);
-	correspondingPoint.reserve(K);
-
-	for (int i = 0; i < globalPoints.size(); ++i) {
-		for (int j = 0; j < globalPoints[i].originatingViews.size(); ++j) {
-			int view = j;
-			int point = i;
-			Vector3d p;
-			Point cvp = all_keypoints[j][globalPoints[i].originatingViews[j]].pt;
-			p[0] = cvp.x;
-			p[1] = cvp.y;
-			p[2] = 1.0;
-
-			if (camIdBwdMap.find(view) != camIdBwdMap.end() &&
-				pointIdBwdMap.find(point) != pointIdBwdMap.end()) {
-				// Normalize the measurements to match the unit focal length.
-				scaleVectorIP(1.0/f0, p);
-				measurements.push_back(Vector2d(p[0], p[1]));
-				correspondingView.push_back(camIdBwdMap[view]);
-				correspondingPoint.push_back(pointIdBwdMap[point]);
-			}
-		}
-	}
-
-	K = measurements.size();
-	double const inlierThreshold = 2.0 / fabs(f0);
-	Matrix3x3d K0 = cams[0].getIntrinsic();
-	if (show) {
-		cout << "K0 before: " << endl;
-		displayMatrix(K0);
-	}
-
-	bool  good_adjustment = false;
-	{
-		ScopedBundleExtrinsicNormalizer extNorm(cams, Xs);
-		ScopedBundleIntrinsicNormalizer intNorm(cams,measurements,correspondingView);
-		CommonInternalsMetricBundleOptimizer opt(V3D::FULL_BUNDLE_FOCAL_LENGTH_PP, inlierThreshold, K0, distortion, cams, Xs,
-												 measurements, correspondingView, correspondingPoint);
-		
-		opt.tau = 1e-3;
-		opt.maxIterations = 50;
-		opt.minimize();
-		
-		cout << "optimizer status = " << opt.status << endl;
-		
-		good_adjustment = (opt.status != 2);
-	}
-	if (show) {
-		cout << "K0 after: " << endl;
-		displayMatrix(K0);
-	}
-	for (int i = 0; i < N; ++i) {
-		cams[i].setIntrinsic(K0);
-	}
-
-	Matrix3x3d Knew = K0;
-	scaleMatrixIP(f0, Knew);
-	Knew[2][2] = 1.0;
-	if (show) {
-		cout << "Knew: " << endl;
-		displayMatrix(Knew);
-	}
-
-	if (good_adjustment) {
-		for (int i = 0; i < Xs.size(); ++i) {
-			globalPoints[i].p.x = Xs[i][0];
-			globalPoints[i].p.y = Xs[i][1];
-			globalPoints[i].p.z = Xs[i][2];
-		}
-		for (int i = 0; i < N; ++i) {
-			Matrix3x3d R = cams[i].getRotation();
-			Vector3d T = cams[i].getTranslation();
-
-			Matx34d P;
-			P(0,0) = R[0][0]; P(0,1) = R[0][1]; P(0,2) = R[0][2]; P(0,3) = T[0];
-			P(1,0) = R[1][0]; P(1,1) = R[1][1]; P(1,2) = R[1][2]; P(1,3) = T[1];
-			P(2,0) = R[2][0]; P(2,1) = R[2][1]; P(2,2) = R[2][2]; P(2,3) = T[2];
-			
-			all_pmats[i] = P;
-		}
-		cam_matrix.at<double>(0,0) = Knew[0][0];
-		cam_matrix.at<double>(0,1) = Knew[0][1];
-		cam_matrix.at<double>(0,2) = Knew[0][2];
-		cam_matrix.at<double>(1,1) = Knew[1][1];
-		cam_matrix.at<double>(1,2) = Knew[1][2];
-	}
+	return true;
 }
 
 int get2DMeasurements(const vector<Point3DInMap>& globalPoints) {
@@ -580,7 +442,7 @@ void displayCloud(vector<Vec3b>& RGBCloud) {
 	pcl::visualization::CloudViewer viewer("SFM");
 	viewer.showCloud(cloudPtr);
 	while(!viewer.wasStopped()) {
-
+		
 	}
 }
 
@@ -612,7 +474,8 @@ void getPointRGB(vector<Vec3b>& RGBCloud) {
 * this function computes SFM from a series of images, matches and camera parameters.
 * returns a point cloud that contains 3d points.
 */
-bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud) {
+bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud, Matx34d& P0,
+ Matx34d& P1, vector<DMatch>& newMatches) {
 
 	vector<KeyPoint> kpts1 = all_keypoints[idx1];
 	vector<KeyPoint> kpts2 = all_keypoints[idx2];
@@ -631,34 +494,25 @@ bool computeSFM(int idx1, int idx2, vector<Point3DInMap>& cloud) {
 	}
 	Mat E, R, t;
 	Mat mask;
+
 	double f0 = K.at<double>(0, 0);
 	Point2d pp(K.at<double>(0, 2), K.at<double>(1, 2));
 	E = findEssentialMat(points1, points2, f0, pp, CV_RANSAC, 0.999, 1.0, mask);
 	recoverPose(E, points1, points2, R, t, f0, pp, mask);
 	cout << "done recover pose " << endl;
-	Matx34d P1 = Matx34d::eye();
-	Matx34d P2 = Matx34d(R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), t.at<double>(0),
+	P0 = Matx34d::eye();
+	P1 = Matx34d(R.at<double>(0,0), R.at<double>(0,1), R.at<double>(0,2), t.at<double>(0),
                     R.at<double>(1,0), R.at<double>(1,1), R.at<double>(1,2), t.at<double>(1),
 					R.at<double>(2,0), R.at<double>(2,1), R.at<double>(2,2), t.at<double>(2));
-	all_pmats[idx1] = P1;
-	all_pmats[idx2] = P2;
-
-	cout << "before triangulation: " << cloud.size() << endl;
-	bool tri_res = triangulateBetweenViews(P1, P2, cloud, idx1, idx2);
-	cout << "after triangulation: " << cloud.size() << endl;		
+	
 
 	//prune the matches based on the inliers.
-	vector<DMatch> new_matches;
+	newMatches.clear();
 	for (int i = 0; i < mask.rows; ++i) {
 		if (mask.at<uchar>(i)) {
-			new_matches.push_back(matches[i]);
+			newMatches.push_back(matches[i]);
 		}
 	}
-	all_matches[make_pair(idx1, idx2)] = new_matches;
-	vector<DMatch> flipedMatches;
-	flipMatches(new_matches, flipedMatches);
-	all_matches[make_pair(idx2, idx1)] = flipedMatches;
-	cout << "new matches size: " << new_matches.size() << endl;
 
 	return true;
 }
@@ -732,7 +586,7 @@ bool computeMatches(int idx1, int idx2) {
 	};
 	all_good_keypoints[make_pair(idx1, idx2)] = pts1_good;
 	all_good_keypoints[make_pair(idx2, idx1)] = pts1_good;
-	if (show) {
+	if (debug) {
 		cout << "match pts1_good size: " << pts1_good.size() << endl;
 		cout << "match pts2_good size: " << pts2_good.size() << endl;
 		cout << "after fund matrix matches: " << new_matches.size() << endl;
@@ -751,7 +605,7 @@ bool computeMatches(int idx1, int idx2) {
 				Scalar::all(-1), Scalar::all(-1), vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
 	
-	if (show) {
+	if (debug) {
 		string name = "matches" + to_string(idx1) + "_" + to_string(idx2) + ".jpg";
  		imwrite(name, img_matches);
 		cout << "image saved" << endl;
@@ -936,20 +790,6 @@ bool triangulateBetweenViews(const Matx34d& P1, const Matx34d& P2,
 
 void sortMatchesFromHomography(list<pair<int, pair<int, int>>>& percent_matches) {
 
-	// const int image_size = images.size();
-	// for (int i = 0; i < image_size - 1; ++i) {
-	// 	for (int j = i + 1; j < image_size; ++j) {
-	// 		if (all_matches[make_pair(i, j)].size() < 100) {
-	// 			percent_matches[1.0] = make_pair(i, j);
-	// 			continue;
-	// 		}
-
-	// 		const int inliers = findHomographyInliers(i, j);
-	// 		const float ratio = (float)inliers / (float)(all_matches[make_pair(i, j)].size());
-	// 		percent_matches[ratio] = make_pair(i, j);
-	// 	}
-	// }
-
 	for (auto it = all_matches.begin(); it != all_matches.end(); ++it) {
 		if ((*it).second.size() < 100) {
 			percent_matches.push_back(make_pair(100, (*it).first));
@@ -973,7 +813,7 @@ void sortMatchesFromHomography(list<pair<int, pair<int, int>>>& percent_matches)
 			int inliers = countNonZero(status);
 			int percent = (int)(((double)inliers) / ((double)(*it).second.size()) * 100);
 			percent_matches.push_back(make_pair((int)percent, (*it).first));
-			if (show) {
+			if (debug) {
 				cout << "percentage inliers for: " << idx1 << ", " << idx2 << ": " 
 				<< percent <<  endl;
 			}
@@ -1087,11 +927,16 @@ void mergeClouds(const vector<Point3DInMap> cloud) {
 	cout << "merged points size: " << mergedPoints << endl;
 } 
 
-void autoCalibrate() {
+void autoCalibrate(Mat& E) {
 	cout << "--auto calibrating--\n" << endl;
-	K = (Mat_<float>(3,3) << 2500,   0, images[0].cols / 2,
-            				 0, 2500, images[0].rows / 2,
-							 0, 0, 1);
+	double sigma1 = E.at<double>(0, 0);
+	double sigma2 = E.at<double>(1, 1);
+	
+	//our cost function becomes 1 - (sigma1 / sigma2) 
+	//and we want that to be as close to 0 as possible
+	cout << E << endl;
+
+
 }
 
 void saveCloudToPLY() {
