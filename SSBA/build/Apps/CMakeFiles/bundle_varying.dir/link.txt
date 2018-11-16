@@ -1,1 +1,0 @@
-/usr/bin/c++   -O3 -DNDEBUG   CMakeFiles/bundle_varying.dir/bundle_varying.cpp.o  -o bundle_varying  -L/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA -rdynamic ../libV3D.a ../libcolamd.a -Wl,-rpath,/mnt/c/Users/shaya/Documents/copy7-11-3drecon/CTests/SSBA 
