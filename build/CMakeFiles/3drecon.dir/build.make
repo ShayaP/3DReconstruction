@@ -272,8 +272,6 @@ CMakeFiles/3drecon.dir/src/3dReconstruction.cpp.o.provides.build: CMakeFiles/3dr
 3drecon: /usr/local/lib/libopencv_xobjdetect.so.3.4.2
 3drecon: /usr/local/lib/libopencv_xphoto.so.3.4.2
 3drecon: /usr/local/lib/libceres.a
-3drecon: SSBA/libV3D.a
-3drecon: SSBA/libcolamd.a
 3drecon: /usr/lib/x86_64-linux-gnu/libpcl_common.so
 3drecon: /usr/lib/x86_64-linux-gnu/libpcl_kdtree.so
 3drecon: /usr/lib/x86_64-linux-gnu/libpcl_octree.so

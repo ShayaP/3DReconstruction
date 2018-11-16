@@ -123,71 +123,6 @@ depend:
 	$(MAKE) -f CMakeFiles/3drecon.dir/build.make CMakeFiles/3drecon.dir/build
 .PHONY : 3drecon/fast
 
-#=============================================================================
-# Target rules for targets named V3D
-
-# Build rule for target.
-V3D: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 V3D
-.PHONY : V3D
-
-# fast build rule for target.
-V3D/fast:
-	$(MAKE) -f SSBA/CMakeFiles/V3D.dir/build.make SSBA/CMakeFiles/V3D.dir/build
-.PHONY : V3D/fast
-
-#=============================================================================
-# Target rules for targets named colamd
-
-# Build rule for target.
-colamd: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 colamd
-.PHONY : colamd
-
-# fast build rule for target.
-colamd/fast:
-	$(MAKE) -f SSBA/CMakeFiles/colamd.dir/build.make SSBA/CMakeFiles/colamd.dir/build
-.PHONY : colamd/fast
-
-#=============================================================================
-# Target rules for targets named bundle_common
-
-# Build rule for target.
-bundle_common: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 bundle_common
-.PHONY : bundle_common
-
-# fast build rule for target.
-bundle_common/fast:
-	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_common.dir/build.make SSBA/Apps/CMakeFiles/bundle_common.dir/build
-.PHONY : bundle_common/fast
-
-#=============================================================================
-# Target rules for targets named bundle_varying
-
-# Build rule for target.
-bundle_varying: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 bundle_varying
-.PHONY : bundle_varying
-
-# fast build rule for target.
-bundle_varying/fast:
-	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying.dir/build
-.PHONY : bundle_varying/fast
-
-#=============================================================================
-# Target rules for targets named bundle_varying_nonlinlsq
-
-# Build rule for target.
-bundle_varying_nonlinlsq: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 bundle_varying_nonlinlsq
-.PHONY : bundle_varying_nonlinlsq
-
-# fast build rule for target.
-bundle_varying_nonlinlsq/fast:
-	$(MAKE) -f SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build.make SSBA/Apps/CMakeFiles/bundle_varying_nonlinlsq.dir/build
-.PHONY : bundle_varying_nonlinlsq/fast
-
 src/3dReconstruction.o: src/3dReconstruction.cpp.o
 
 .PHONY : src/3dReconstruction.o
@@ -224,11 +159,6 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... 3drecon"
-	@echo "... V3D"
-	@echo "... colamd"
-	@echo "... bundle_common"
-	@echo "... bundle_varying"
-	@echo "... bundle_varying_nonlinlsq"
 	@echo "... src/3dReconstruction.o"
 	@echo "... src/3dReconstruction.i"
 	@echo "... src/3dReconstruction.s"
